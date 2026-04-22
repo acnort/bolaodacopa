@@ -1,0 +1,224 @@
+export type UserRole = "admin" | "member";
+export type InviteStatus = "pending" | "accepted" | "expired";
+export type MatchStatus = "scheduled" | "in_progress" | "completed";
+export type ScoreSourceType = "match" | "placement";
+
+export interface Profile {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+export interface Invite {
+  id: string;
+  email: string;
+  token: string;
+  role: UserRole;
+  invitedBy: string;
+  status: InviteStatus;
+  expiresAt: string;
+  acceptedAt?: string;
+}
+
+export interface Membership {
+  id: string;
+  userId: string;
+  competitionId: string;
+  role: UserRole;
+  joinedAt: string;
+}
+
+export interface Competition {
+  id: string;
+  name: string;
+  edition: string;
+  host: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  shortName: string;
+  code: string;
+  group?: string;
+}
+
+export interface Phase {
+  id: string;
+  competitionId: string;
+  slug: string;
+  name: string;
+  order: number;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface PhaseScoring {
+  exactScore: number;
+  correctOutcome: number;
+  champion: number;
+  runnerUp: number;
+  thirdPlace: number;
+}
+
+export interface PredictionRule {
+  id: string;
+  phaseId: string;
+  enableMatchPredictions: boolean;
+  enablePlacementPredictions: boolean;
+  opensAt: string;
+  closesAt: string;
+  scoring: PhaseScoring;
+  status: "draft" | "active" | "locked";
+}
+
+export interface Match {
+  id: string;
+  phaseId: string;
+  roundLabel: string;
+  kickoffAt: string;
+  venue: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  status: MatchStatus;
+}
+
+export interface OfficialResult {
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  publishedAt: string;
+}
+
+export interface PlacementResult {
+  competitionId: string;
+  championTeamId?: string;
+  runnerUpTeamId?: string;
+  thirdPlaceTeamId?: string;
+  publishedAt?: string;
+}
+
+export interface MatchPrediction {
+  id: string;
+  userId: string;
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlacementPrediction {
+  id: string;
+  userId: string;
+  competitionId: string;
+  championTeamId?: string;
+  runnerUpTeamId?: string;
+  thirdPlaceTeamId?: string;
+  updatedAt: string;
+}
+
+export interface ScoreEntry {
+  id: string;
+  userId: string;
+  phaseId: string;
+  sourceType: ScoreSourceType;
+  sourceId: string;
+  points: number;
+  exactHit: boolean;
+  outcomeHit: boolean;
+  description: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string;
+  totalPoints: number;
+  exactHits: number;
+  outcomeHits: number;
+  position: number;
+}
+
+export interface AppSnapshot {
+  competition: Competition;
+  teams: Team[];
+  phases: Phase[];
+  rules: PredictionRule[];
+  matches: Match[];
+  results: OfficialResult[];
+  placementResult: PlacementResult;
+  profiles: Profile[];
+  invites: Invite[];
+  memberships: Membership[];
+  matchPredictions: MatchPrediction[];
+  placementPredictions: PlacementPrediction[];
+}
+
+export interface MatchPredictionInput {
+  userId: string;
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+}
+
+export interface PlacementPredictionInput {
+  userId: string;
+  competitionId: string;
+  championTeamId: string;
+  runnerUpTeamId: string;
+  thirdPlaceTeamId: string;
+}
+
+export interface OfficialResultInput {
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  status: MatchStatus;
+}
+
+export interface PlacementResultInput {
+  competitionId: string;
+  championTeamId: string;
+  runnerUpTeamId: string;
+  thirdPlaceTeamId: string;
+}
+
+export interface PhaseRuleInput {
+  phaseId: string;
+  enableMatchPredictions: boolean;
+  enablePlacementPredictions: boolean;
+  opensAt: string;
+  closesAt: string;
+  exactScore: number;
+  correctOutcome: number;
+  champion: number;
+  runnerUp: number;
+  thirdPlace: number;
+  status: "draft" | "active" | "locked";
+}
+
+export interface InviteInput {
+  email: string;
+  role: UserRole;
+  expiresAt: string;
+}
+
+export interface InviteAcceptanceInput {
+  token: string;
+  fullName: string;
+  password?: string;
+}
+
+export interface AuthInput {
+  email: string;
+  password?: string;
+}
+
+export interface ActionResult<T = unknown> {
+  ok: boolean;
+  message: string;
+  fieldErrors?: Record<string, string[]>;
+  data?: T;
+}
