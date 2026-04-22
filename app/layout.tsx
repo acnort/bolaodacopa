@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
 
 import { AppToaster } from "@/components/ui/toast";
+import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 
 const manrope = Manrope({

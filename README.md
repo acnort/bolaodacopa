@@ -8,6 +8,7 @@ Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 - ranking geral com desempate por acerto exato e depois resultado correto
 - painel admin para convites, regras por fase e resultados oficiais
 - fonte manual de resultados no v1, com `ResultsProvider` preparado para `API-Football`
+- persistência planejada em `Postgres` puro
 
 ## Stack
 
@@ -15,7 +16,8 @@ Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 - `TypeScript`
 - `Tailwind CSS 4`
 - componentes inspirados em `shadcn/ui` com `Radix UI`
-- `Supabase` preparado para `Auth` e `Postgres`
+- `Postgres`
+- `node-postgres (pg)` para a camada de acesso ao banco
 - `Vitest` + Testing Library
 
 ## Rodando localmente
@@ -29,7 +31,7 @@ Abra `http://localhost:3000`.
 
 ## Modo demo
 
-Sem variáveis do Supabase configuradas, a aplicação roda em modo demonstrativo com:
+Sem `DATABASE_URL` configurada, a aplicação roda em modo demonstrativo com:
 
 - snapshot inicial em memória
 - server actions reais
@@ -41,23 +43,26 @@ Sem variáveis do Supabase configuradas, a aplicação roda em modo demonstrativ
 - `/` landing pública
 - `/entrar` login por magic link ou senha
 - `/convite/[token]` aceite de convite
-- `/app` dashboard privado
-- `/app/palpites` palpites por partida
-- `/app/podio` campeão, vice e terceiro
-- `/app/ranking` leaderboard geral
+- `/app` ranking privado
+- `/app/palpites` palpites por fase
 - `/app/admin` painel administrativo
 
-## Supabase
+## Postgres
 
 O schema inicial está em:
 
-- [supabase/migrations/202604210001_initial.sql](/c:/Documentos/projects/bolaov2/supabase/migrations/202604210001_initial.sql)
+- [database/migrations/202604210001_initial.sql](/c:/Documentos/projects/bolaov2/database/migrations/202604210001_initial.sql)
+
+Seed com os grupos oficiais da Copa de 2026:
+
+- [database/seeds/202604220001_world_cup_2026_groups.sql](/c:/Documentos/projects/bolaov2/database/seeds/202604220001_world_cup_2026_groups.sql)
 
 Variáveis necessárias:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `DATABASE_SSL`
+- `AUTH_SECRET`
+- `APP_URL`
 
 ## API-Football
 
@@ -111,5 +116,6 @@ npm run build
 ## Observações
 
 - O contrato `ResultsProvider` suporta provider mock e `API-Football`.
-- O fluxo real de `Supabase Auth` está preparado por cliente browser/server, mas o repositório persistente ainda usa store demo neste bootstrap inicial.
+- Os grupos oficiais de 2026 estão espelhados no sample local e em seed SQL para o banco.
+- A aplicação ainda usa store demo neste bootstrap inicial; a camada `Postgres` agora está preparada como direção oficial da persistência.
 - Não há qualquer fluxo financeiro no app.

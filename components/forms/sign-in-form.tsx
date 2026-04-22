@@ -50,7 +50,7 @@ export function SignInForm() {
           variant="secondary"
           onClick={() =>
             toast.success(
-              `Login por senha preparado para Supabase Auth: ${email || "sem email"}.`,
+              `Login por senha preparado para a camada de auth em Postgres: ${email || "sem email"}.`,
             )
           }
         >

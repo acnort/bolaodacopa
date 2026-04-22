@@ -1,4 +1,11 @@
-import type { AppSnapshot, MatchPrediction, PlacementPrediction, Team } from "@/lib/domain/types";
+import type {
+  AppSnapshot,
+  Match,
+  MatchPrediction,
+  Phase,
+  PlacementPrediction,
+  Team,
+} from "@/lib/domain/types";
 
 export function teamMap(teams: Team[]) {
   return new Map(teams.map((team) => [team.id, team]));
@@ -7,6 +14,31 @@ export function teamMap(teams: Team[]) {
 export function getTeamName(teams: Team[], teamId?: string) {
   if (!teamId) return "-";
   return teams.find((team) => team.id === teamId)?.name ?? "-";
+}
+
+export function getTeamOrPlaceholder(
+  teams: Team[],
+  teamId?: string,
+  placeholder?: string,
+) {
+  if (teamId) {
+    return getTeamName(teams, teamId);
+  }
+
+  return placeholder ?? "A definir";
+}
+
+export function getPhaseMatches(matches: Match[], phaseId: string) {
+  return matches
+    .filter((match) => match.phaseId === phaseId)
+    .sort(
+      (a, b) =>
+        new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime(),
+    );
+}
+
+export function getSortedPhases(phases: Phase[]) {
+  return [...phases].sort((a, b) => a.order - b.order);
 }
 
 export function getMatchPrediction(

@@ -16,17 +16,10 @@ export default function SignInPage() {
       <div className="grid w-full gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="bg-[linear-gradient(150deg,#2c2c2c,#464646)] text-white">
           <CardContent className="space-y-6 p-8">
-            <Badge variant="accent">auth por convite</Badge>
+            <Badge variant="accent">acesso privado</Badge>
             <div className="space-y-3">
-              <h1 className="text-4xl font-semibold">Entre no bolão com segurança.</h1>
-              <p className="text-sm leading-7 text-white/75">
-                Primeiro acesso por magic link, login posterior por novo magic link ou senha
-                opcional configurada pelo próprio participante.
-              </p>
-            </div>
-            <div className="rounded-lg bg-white/10 p-5">
-              <p className="text-sm text-white/75">Fluxo recomendado</p>
-              <p className="mt-2 text-lg font-semibold">Convite por email → magic link → perfil</p>
+              <h1 className="text-4xl font-semibold">Entre no bolão.</h1>
+              <p className="text-sm leading-7 text-white/75">Use seu email para entrar por magic link ou senha.</p>
             </div>
           </CardContent>
         </Card>
@@ -34,10 +27,7 @@ export default function SignInPage() {
         <Card>
           <CardHeader>
             <CardTitle>Entrar na área privada</CardTitle>
-            <CardDescription>
-              A integração real com Supabase Auth já está preparada. Nesta versão inicial, os
-              botões simulam o fluxo para validar a UX.
-            </CardDescription>
+            <CardDescription>O fluxo segue em modo demo enquanto a persistência em Postgres é conectada.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <SignInForm />

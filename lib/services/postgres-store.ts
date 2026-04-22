@@ -1,0 +1,1293 @@
+import "server-only";
+
+import { randomUUID } from "crypto";
+
+import { sampleSnapshot } from "@/lib/data/sample-data";
+import type {
+  ActionResult,
+  AppSnapshot,
+  InviteAcceptanceInput,
+  InviteInput,
+  MatchPredictionInput,
+  OfficialResultInput,
+  Phase,
+  PhaseBatchPredictionInput,
+  PhaseRuleInput,
+  PlacementPredictionInput,
+  PlacementResultInput,
+  PredictionRule,
+  Team,
+} from "@/lib/domain/types";
+import { getDatabasePool } from "@/lib/services/database/pool";
+
+function nextId(prefix: string) {
+  return `${prefix}-${randomUUID()}`;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function requiredPool() {
+  const pool = getDatabasePool();
+
+  if (!pool) {
+    throw new Error("DATABASE_URL não configurada.");
+  }
+
+  return pool;
+}
+
+async function ensureDatabaseSeeded() {
+  const pool = requiredPool();
+  const existing = await pool.query<{ id: string }>(
+    "select id from competitions where id = $1 limit 1",
+    [sampleSnapshot.competition.id],
+  );
+
+  if (existing.rowCount) {
+    return;
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("begin");
+
+    const groupCodes = [...new Set(sampleSnapshot.teams.map((team) => team.group).filter(Boolean))];
+    const orderedGroupCodes = groupCodes.sort((a, b) => a!.localeCompare(b!));
+    const groupIdByCode = new Map<string, string>();
+
+    await client.query(
+      `
+        insert into competitions (id, name, edition, host, created_at)
+        values ($1, $2, $3, $4, timezone('utc', now()))
+      `,
+      [
+        sampleSnapshot.competition.id,
+        sampleSnapshot.competition.name,
+        sampleSnapshot.competition.edition,
+        sampleSnapshot.competition.host,
+      ],
+    );
+
+    for (const [index, groupCode] of orderedGroupCodes.entries()) {
+      if (!groupCode) continue;
+
+      const groupId = `${sampleSnapshot.competition.id}-group-${groupCode.toLowerCase()}`;
+      groupIdByCode.set(groupCode, groupId);
+
+      await client.query(
+        `
+          insert into competition_groups (id, competition_id, code, name, group_order)
+          values ($1, $2, $3, $4, $5)
+        `,
+        [
+          groupId,
+          sampleSnapshot.competition.id,
+          groupCode,
+          `Grupo ${groupCode}`,
+          index + 1,
+        ],
+      );
+    }
+
+    for (const team of sampleSnapshot.teams) {
+      await client.query(
+        `
+          insert into teams (id, competition_id, group_id, name, short_name, code)
+          values ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          team.id,
+          sampleSnapshot.competition.id,
+          team.group ? groupIdByCode.get(team.group) ?? null : null,
+          team.name,
+          team.shortName,
+          team.code,
+        ],
+      );
+    }
+
+    for (const phase of sampleSnapshot.phases) {
+      await client.query(
+        `
+          insert into phases (id, competition_id, slug, name, phase_order, starts_at, ends_at)
+          values ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [
+          phase.id,
+          phase.competitionId,
+          phase.slug,
+          phase.name,
+          phase.order,
+          phase.startsAt,
+          phase.endsAt,
+        ],
+      );
+    }
+
+    for (const rule of sampleSnapshot.rules) {
+      await client.query(
+        `
+          insert into prediction_rules (
+            id,
+            phase_id,
+            enable_match_predictions,
+            enable_placement_predictions,
+            opens_at,
+            closes_at,
+            exact_score_points,
+            correct_outcome_points,
+            champion_points,
+            runner_up_points,
+            third_place_points,
+            status
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `,
+        [
+          rule.id,
+          rule.phaseId,
+          rule.enableMatchPredictions,
+          rule.enablePlacementPredictions,
+          rule.opensAt,
+          rule.closesAt,
+          rule.scoring.exactScore,
+          rule.scoring.correctOutcome,
+          rule.scoring.champion,
+          rule.scoring.runnerUp,
+          rule.scoring.thirdPlace,
+          rule.status,
+        ],
+      );
+    }
+
+    for (const match of sampleSnapshot.matches) {
+      await client.query(
+        `
+          insert into matches (
+            id,
+            phase_id,
+            round_label,
+            stage_group,
+            kickoff_at,
+            venue,
+            home_team_id,
+            away_team_id,
+            home_placeholder,
+            away_placeholder,
+            status
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `,
+        [
+          match.id,
+          match.phaseId,
+          match.roundLabel,
+          match.stageGroup ?? null,
+          match.kickoffAt,
+          match.venue,
+          match.homeTeamId ?? null,
+          match.awayTeamId ?? null,
+          match.homePlaceholder ?? null,
+          match.awayPlaceholder ?? null,
+          match.status,
+        ],
+      );
+    }
+
+    for (const profile of sampleSnapshot.profiles) {
+      await client.query(
+        `
+          insert into users (id, email, created_at)
+          values ($1, $2, $3)
+        `,
+        [profile.id, profile.email, profile.createdAt],
+      );
+
+      await client.query(
+        `
+          insert into profiles (id, user_id, full_name, role, created_at)
+          values ($1, $2, $3, $4, $5)
+        `,
+        [profile.id, profile.id, profile.fullName, profile.role, profile.createdAt],
+      );
+    }
+
+    for (const membership of sampleSnapshot.memberships) {
+      await client.query(
+        `
+          insert into memberships (id, user_id, competition_id, role, joined_at)
+          values ($1, $2, $3, $4, $5)
+        `,
+        [
+          membership.id,
+          membership.userId,
+          membership.competitionId,
+          membership.role,
+          membership.joinedAt,
+        ],
+      );
+    }
+
+    for (const invite of sampleSnapshot.invites) {
+      await client.query(
+        `
+          insert into invites (
+            id,
+            email,
+            token,
+            role,
+            invited_by,
+            accepted_user_id,
+            status,
+            expires_at,
+            accepted_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `,
+        [
+          invite.id,
+          invite.email,
+          invite.token,
+          invite.role,
+          invite.invitedBy,
+          null,
+          invite.status,
+          invite.expiresAt,
+          invite.acceptedAt ?? null,
+        ],
+      );
+    }
+
+    for (const result of sampleSnapshot.results) {
+      await client.query(
+        `
+          insert into official_results (match_id, home_score, away_score, published_at)
+          values ($1, $2, $3, $4)
+        `,
+        [result.matchId, result.homeScore, result.awayScore, result.publishedAt],
+      );
+    }
+
+    await client.query(
+      `
+        insert into placement_results (
+          competition_id,
+          champion_team_id,
+          runner_up_team_id,
+          third_place_team_id,
+          published_at
+        )
+        values ($1, $2, $3, $4, $5)
+      `,
+      [
+        sampleSnapshot.placementResult.competitionId,
+        sampleSnapshot.placementResult.championTeamId ?? null,
+        sampleSnapshot.placementResult.runnerUpTeamId ?? null,
+        sampleSnapshot.placementResult.thirdPlaceTeamId ?? null,
+        sampleSnapshot.placementResult.publishedAt ?? null,
+      ],
+    );
+
+    for (const prediction of sampleSnapshot.matchPredictions) {
+      await client.query(
+        `
+          insert into match_predictions (
+            id,
+            user_id,
+            match_id,
+            home_score,
+            away_score,
+            created_at,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [
+          prediction.id,
+          prediction.userId,
+          prediction.matchId,
+          prediction.homeScore,
+          prediction.awayScore,
+          prediction.createdAt,
+          prediction.updatedAt,
+        ],
+      );
+    }
+
+    for (const prediction of sampleSnapshot.placementPredictions) {
+      await client.query(
+        `
+          insert into placement_predictions (
+            id,
+            user_id,
+            competition_id,
+            champion_team_id,
+            runner_up_team_id,
+            third_place_team_id,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7)
+        `,
+        [
+          prediction.id,
+          prediction.userId,
+          prediction.competitionId,
+          prediction.championTeamId ?? null,
+          prediction.runnerUpTeamId ?? null,
+          prediction.thirdPlaceTeamId ?? null,
+          prediction.updatedAt,
+        ],
+      );
+    }
+
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getPostgresCurrentUser() {
+  await ensureDatabaseSeeded();
+
+  const pool = requiredPool();
+  const explicitId = process.env.APP_CURRENT_USER_ID?.trim();
+
+  if (explicitId) {
+    const result = await pool.query<{ id: string }>(
+      "select id from profiles where id = $1 limit 1",
+      [explicitId],
+    );
+
+    if (result.rowCount) {
+      return explicitId;
+    }
+  }
+
+  const explicitEmail = process.env.APP_CURRENT_USER_EMAIL?.trim();
+
+  if (explicitEmail) {
+    const result = await pool.query<{ id: string }>(
+      `
+        select p.id
+        from profiles p
+        inner join users u on u.id = p.user_id
+        where lower(u.email) = lower($1)
+        limit 1
+      `,
+      [explicitEmail],
+    );
+
+    if (result.rowCount) {
+      return result.rows[0]!.id;
+    }
+  }
+
+  const fallback = await pool.query<{ id: string }>(
+    `
+      select id
+      from profiles
+      order by case when role = 'admin' then 0 else 1 end, created_at asc
+      limit 1
+    `,
+  );
+
+  return fallback.rows[0]?.id ?? sampleSnapshot.profiles[0]!.id;
+}
+
+function mapRule(row: {
+  id: string;
+  phase_id: string;
+  enable_match_predictions: boolean;
+  enable_placement_predictions: boolean;
+  opens_at: string;
+  closes_at: string;
+  exact_score_points: number;
+  correct_outcome_points: number;
+  champion_points: number;
+  runner_up_points: number;
+  third_place_points: number;
+  status: PredictionRule["status"];
+}): PredictionRule {
+  return {
+    id: row.id,
+    phaseId: row.phase_id,
+    enableMatchPredictions: row.enable_match_predictions,
+    enablePlacementPredictions: row.enable_placement_predictions,
+    opensAt: new Date(row.opens_at).toISOString(),
+    closesAt: new Date(row.closes_at).toISOString(),
+    scoring: {
+      exactScore: row.exact_score_points,
+      correctOutcome: row.correct_outcome_points,
+      champion: row.champion_points,
+      runnerUp: row.runner_up_points,
+      thirdPlace: row.third_place_points,
+    },
+    status: row.status,
+  };
+}
+
+function mapPhase(row: {
+  id: string;
+  competition_id: string;
+  slug: string;
+  name: string;
+  phase_order: number;
+  starts_at: string;
+  ends_at: string;
+}): Phase {
+  return {
+    id: row.id,
+    competitionId: row.competition_id,
+    slug: row.slug,
+    name: row.name,
+    order: row.phase_order,
+    startsAt: new Date(row.starts_at).toISOString(),
+    endsAt: new Date(row.ends_at).toISOString(),
+  };
+}
+
+function mapTeam(row: {
+  id: string;
+  name: string;
+  short_name: string;
+  code: string;
+  group_code: string | null;
+}): Team {
+  return {
+    id: row.id,
+    name: row.name,
+    shortName: row.short_name,
+    code: row.code,
+    group: row.group_code ?? undefined,
+  };
+}
+
+export async function getPostgresSnapshot(): Promise<AppSnapshot> {
+  await ensureDatabaseSeeded();
+
+  const pool = requiredPool();
+  const competitionId = sampleSnapshot.competition.id;
+
+  const [
+    competitionResult,
+    teamsResult,
+    phasesResult,
+    rulesResult,
+    matchesResult,
+    resultsResult,
+    placementResult,
+    profilesResult,
+    invitesResult,
+    membershipsResult,
+    matchPredictionsResult,
+    placementPredictionsResult,
+  ] = await Promise.all([
+    pool.query<{
+      id: string;
+      name: string;
+      edition: string;
+      host: string;
+    }>("select id, name, edition, host from competitions where id = $1 limit 1", [competitionId]),
+    pool.query<{
+      id: string;
+      name: string;
+      short_name: string;
+      code: string;
+      group_code: string | null;
+    }>(
+      `
+        select t.id, t.name, t.short_name, t.code, cg.code as group_code
+        from teams t
+        left join competition_groups cg on cg.id = t.group_id
+        where t.competition_id = $1
+        order by cg.group_order asc nulls last, t.name asc
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      competition_id: string;
+      slug: string;
+      name: string;
+      phase_order: number;
+      starts_at: string;
+      ends_at: string;
+    }>(
+      `
+        select id, competition_id, slug, name, phase_order, starts_at, ends_at
+        from phases
+        where competition_id = $1
+        order by phase_order asc
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      phase_id: string;
+      enable_match_predictions: boolean;
+      enable_placement_predictions: boolean;
+      opens_at: string;
+      closes_at: string;
+      exact_score_points: number;
+      correct_outcome_points: number;
+      champion_points: number;
+      runner_up_points: number;
+      third_place_points: number;
+      status: PredictionRule["status"];
+    }>(
+      `
+        select
+          id,
+          phase_id,
+          enable_match_predictions,
+          enable_placement_predictions,
+          opens_at,
+          closes_at,
+          exact_score_points,
+          correct_outcome_points,
+          champion_points,
+          runner_up_points,
+          third_place_points,
+          status
+        from prediction_rules
+        where phase_id in (
+          select id from phases where competition_id = $1
+        )
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      phase_id: string;
+      round_label: string;
+      stage_group: string | null;
+      kickoff_at: string;
+      venue: string;
+      home_team_id: string | null;
+      away_team_id: string | null;
+      home_placeholder: string | null;
+      away_placeholder: string | null;
+      status: "scheduled" | "in_progress" | "completed";
+    }>(
+      `
+        select
+          id,
+          phase_id,
+          round_label,
+          stage_group,
+          kickoff_at,
+          venue,
+          home_team_id,
+          away_team_id,
+          home_placeholder,
+          away_placeholder,
+          status
+        from matches
+        where phase_id in (
+          select id from phases where competition_id = $1
+        )
+        order by kickoff_at asc, id asc
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      match_id: string;
+      home_score: number;
+      away_score: number;
+      published_at: string;
+    }>(
+      `
+        select r.match_id, r.home_score, r.away_score, r.published_at
+        from official_results r
+        inner join matches m on m.id = r.match_id
+        where m.phase_id in (
+          select id from phases where competition_id = $1
+        )
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      competition_id: string;
+      champion_team_id: string | null;
+      runner_up_team_id: string | null;
+      third_place_team_id: string | null;
+      published_at: string | null;
+    }>(
+      `
+        select competition_id, champion_team_id, runner_up_team_id, third_place_team_id, published_at
+        from placement_results
+        where competition_id = $1
+        limit 1
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      full_name: string;
+      email: string;
+      role: "admin" | "member";
+      created_at: string;
+    }>(
+      `
+        select p.id, p.full_name, u.email, p.role, p.created_at
+        from profiles p
+        inner join users u on u.id = p.user_id
+        order by p.created_at asc
+      `,
+    ),
+    pool.query<{
+      id: string;
+      email: string;
+      token: string;
+      role: "admin" | "member";
+      invited_by: string;
+      status: "pending" | "accepted" | "expired";
+      expires_at: string;
+      accepted_at: string | null;
+    }>(
+      `
+        select id, email, token, role, invited_by, status, expires_at, accepted_at
+        from invites
+        order by expires_at desc, id desc
+      `,
+    ),
+    pool.query<{
+      id: string;
+      user_id: string;
+      competition_id: string;
+      role: "admin" | "member";
+      joined_at: string;
+    }>(
+      `
+        select id, user_id, competition_id, role, joined_at
+        from memberships
+        where competition_id = $1
+        order by joined_at asc
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      user_id: string;
+      match_id: string;
+      home_score: number;
+      away_score: number;
+      created_at: string;
+      updated_at: string;
+    }>(
+      `
+        select mp.id, mp.user_id, mp.match_id, mp.home_score, mp.away_score, mp.created_at, mp.updated_at
+        from match_predictions mp
+        inner join matches m on m.id = mp.match_id
+        where m.phase_id in (
+          select id from phases where competition_id = $1
+        )
+      `,
+      [competitionId],
+    ),
+    pool.query<{
+      id: string;
+      user_id: string;
+      competition_id: string;
+      champion_team_id: string | null;
+      runner_up_team_id: string | null;
+      third_place_team_id: string | null;
+      updated_at: string;
+    }>(
+      `
+        select id, user_id, competition_id, champion_team_id, runner_up_team_id, third_place_team_id, updated_at
+        from placement_predictions
+        where competition_id = $1
+      `,
+      [competitionId],
+    ),
+  ]);
+
+  const competition = competitionResult.rows[0];
+
+  if (!competition) {
+    throw new Error("Competição principal não encontrada no banco.");
+  }
+
+  return {
+    competition,
+    teams: teamsResult.rows.map(mapTeam),
+    phases: phasesResult.rows.map(mapPhase),
+    rules: rulesResult.rows.map(mapRule),
+    matches: matchesResult.rows.map((row) => ({
+      id: row.id,
+      phaseId: row.phase_id,
+      roundLabel: row.round_label,
+      stageGroup: row.stage_group ?? undefined,
+      kickoffAt: new Date(row.kickoff_at).toISOString(),
+      venue: row.venue,
+      homeTeamId: row.home_team_id ?? undefined,
+      awayTeamId: row.away_team_id ?? undefined,
+      homePlaceholder: row.home_placeholder ?? undefined,
+      awayPlaceholder: row.away_placeholder ?? undefined,
+      status: row.status,
+    })),
+    results: resultsResult.rows.map((row) => ({
+      matchId: row.match_id,
+      homeScore: row.home_score,
+      awayScore: row.away_score,
+      publishedAt: new Date(row.published_at).toISOString(),
+    })),
+    placementResult: placementResult.rows[0]
+      ? {
+          competitionId: placementResult.rows[0].competition_id,
+          championTeamId: placementResult.rows[0].champion_team_id ?? undefined,
+          runnerUpTeamId: placementResult.rows[0].runner_up_team_id ?? undefined,
+          thirdPlaceTeamId: placementResult.rows[0].third_place_team_id ?? undefined,
+          publishedAt: placementResult.rows[0].published_at
+            ? new Date(placementResult.rows[0].published_at).toISOString()
+            : undefined,
+        }
+      : {
+          competitionId,
+        },
+    profiles: profilesResult.rows.map((row) => ({
+      id: row.id,
+      fullName: row.full_name,
+      email: row.email,
+      role: row.role,
+      createdAt: new Date(row.created_at).toISOString(),
+    })),
+    invites: invitesResult.rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      token: row.token,
+      role: row.role,
+      invitedBy: row.invited_by,
+      status: row.status,
+      expiresAt: new Date(row.expires_at).toISOString(),
+      acceptedAt: row.accepted_at ? new Date(row.accepted_at).toISOString() : undefined,
+    })),
+    memberships: membershipsResult.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      competitionId: row.competition_id,
+      role: row.role,
+      joinedAt: new Date(row.joined_at).toISOString(),
+    })),
+    matchPredictions: matchPredictionsResult.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      matchId: row.match_id,
+      homeScore: row.home_score,
+      awayScore: row.away_score,
+      createdAt: new Date(row.created_at).toISOString(),
+      updatedAt: new Date(row.updated_at).toISOString(),
+    })),
+    placementPredictions: placementPredictionsResult.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      competitionId: row.competition_id,
+      championTeamId: row.champion_team_id ?? undefined,
+      runnerUpTeamId: row.runner_up_team_id ?? undefined,
+      thirdPlaceTeamId: row.third_place_team_id ?? undefined,
+      updatedAt: new Date(row.updated_at).toISOString(),
+    })),
+  };
+}
+
+export async function saveMatchPredictionPostgres(
+  input: MatchPredictionInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const pool = requiredPool();
+  const existing = await pool.query<{ id: string }>(
+    `
+      select id
+      from match_predictions
+      where user_id = $1 and match_id = $2
+      limit 1
+    `,
+    [input.userId, input.matchId],
+  );
+
+  const updatedId = existing.rows[0]?.id ?? nextId("pred");
+
+  await pool.query(
+    `
+      insert into match_predictions (
+        id,
+        user_id,
+        match_id,
+        home_score,
+        away_score,
+        created_at,
+        updated_at
+      )
+      values ($1, $2, $3, $4, $5, $6, $7)
+      on conflict (user_id, match_id)
+      do update set
+        home_score = excluded.home_score,
+        away_score = excluded.away_score,
+        updated_at = excluded.updated_at
+    `,
+    [
+      updatedId,
+      input.userId,
+      input.matchId,
+      input.homeScore,
+      input.awayScore,
+      nowIso(),
+      nowIso(),
+    ],
+  );
+
+  return {
+    ok: true,
+    message: existing.rowCount ? "Palpite de jogo atualizado." : "Palpite de jogo salvo.",
+    data: { updatedId },
+  };
+}
+
+export async function savePhasePredictionsPostgres(
+  input: PhaseBatchPredictionInput,
+): Promise<ActionResult<{ updatedCount: number }>> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    let updatedCount = 0;
+
+    for (const prediction of input.predictions) {
+      const existing = await client.query<{ id: string }>(
+        `
+          select id
+          from match_predictions
+          where user_id = $1 and match_id = $2
+          limit 1
+        `,
+        [input.userId, prediction.matchId],
+      );
+
+      const predictionId = existing.rows[0]?.id ?? nextId("pred");
+      const timestamp = nowIso();
+
+      await client.query(
+        `
+          insert into match_predictions (
+            id,
+            user_id,
+            match_id,
+            home_score,
+            away_score,
+            created_at,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7)
+          on conflict (user_id, match_id)
+          do update set
+            home_score = excluded.home_score,
+            away_score = excluded.away_score,
+            updated_at = excluded.updated_at
+        `,
+        [
+          predictionId,
+          input.userId,
+          prediction.matchId,
+          prediction.homeScore,
+          prediction.awayScore,
+          timestamp,
+          timestamp,
+        ],
+      );
+
+      updatedCount += 1;
+    }
+
+    if (input.placementPrediction) {
+      const existing = await client.query<{ id: string }>(
+        `
+          select id
+          from placement_predictions
+          where user_id = $1 and competition_id = $2
+          limit 1
+        `,
+        [input.userId, input.placementPrediction.competitionId],
+      );
+
+      const predictionId = existing.rows[0]?.id ?? nextId("placement");
+
+      await client.query(
+        `
+          insert into placement_predictions (
+            id,
+            user_id,
+            competition_id,
+            champion_team_id,
+            runner_up_team_id,
+            third_place_team_id,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7)
+          on conflict (user_id, competition_id)
+          do update set
+            champion_team_id = excluded.champion_team_id,
+            runner_up_team_id = excluded.runner_up_team_id,
+            third_place_team_id = excluded.third_place_team_id,
+            updated_at = excluded.updated_at
+        `,
+        [
+          predictionId,
+          input.userId,
+          input.placementPrediction.competitionId,
+          input.placementPrediction.championTeamId,
+          input.placementPrediction.runnerUpTeamId,
+          input.placementPrediction.thirdPlaceTeamId,
+          nowIso(),
+        ],
+      );
+
+      updatedCount += 1;
+    }
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message:
+        updatedCount > 0 ? "Palpites da fase salvos." : "Nenhuma alteração enviada.",
+      data: { updatedCount },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function savePlacementPredictionPostgres(
+  input: PlacementPredictionInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const pool = requiredPool();
+  const existing = await pool.query<{ id: string }>(
+    `
+      select id
+      from placement_predictions
+      where user_id = $1 and competition_id = $2
+      limit 1
+    `,
+    [input.userId, input.competitionId],
+  );
+
+  const predictionId = existing.rows[0]?.id ?? nextId("placement");
+
+  await pool.query(
+    `
+      insert into placement_predictions (
+        id,
+        user_id,
+        competition_id,
+        champion_team_id,
+        runner_up_team_id,
+        third_place_team_id,
+        updated_at
+      )
+      values ($1, $2, $3, $4, $5, $6, $7)
+      on conflict (user_id, competition_id)
+      do update set
+        champion_team_id = excluded.champion_team_id,
+        runner_up_team_id = excluded.runner_up_team_id,
+        third_place_team_id = excluded.third_place_team_id,
+        updated_at = excluded.updated_at
+    `,
+    [
+      predictionId,
+      input.userId,
+      input.competitionId,
+      input.championTeamId,
+      input.runnerUpTeamId,
+      input.thirdPlaceTeamId,
+      nowIso(),
+    ],
+  );
+
+  return {
+    ok: true,
+    message: existing.rowCount ? "Palpite final atualizado." : "Palpite final salvo.",
+    data: { updatedId: predictionId },
+  };
+}
+
+export async function saveOfficialResultPostgres(
+  input: OfficialResultInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    await client.query("update matches set status = $2 where id = $1", [
+      input.matchId,
+      input.status,
+    ]);
+
+    await client.query(
+      `
+        insert into official_results (match_id, home_score, away_score, published_at)
+        values ($1, $2, $3, $4)
+        on conflict (match_id)
+        do update set
+          home_score = excluded.home_score,
+          away_score = excluded.away_score,
+          published_at = excluded.published_at
+      `,
+      [input.matchId, input.homeScore, input.awayScore, nowIso()],
+    );
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Resultado oficial salvo.",
+      data: { updatedId: input.matchId },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function savePlacementResultPostgres(
+  input: PlacementResultInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  await requiredPool().query(
+    `
+      insert into placement_results (
+        competition_id,
+        champion_team_id,
+        runner_up_team_id,
+        third_place_team_id,
+        published_at
+      )
+      values ($1, $2, $3, $4, $5)
+      on conflict (competition_id)
+      do update set
+        champion_team_id = excluded.champion_team_id,
+        runner_up_team_id = excluded.runner_up_team_id,
+        third_place_team_id = excluded.third_place_team_id,
+        published_at = excluded.published_at
+    `,
+    [
+      input.competitionId,
+      input.championTeamId,
+      input.runnerUpTeamId,
+      input.thirdPlaceTeamId,
+      nowIso(),
+    ],
+  );
+
+  return {
+    ok: true,
+    message: "Resultado do podio atualizado.",
+    data: { updatedId: input.competitionId },
+  };
+}
+
+export async function savePhaseRulePostgres(
+  input: PhaseRuleInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const result = await requiredPool().query<{ id: string }>(
+    `
+      update prediction_rules
+      set
+        enable_match_predictions = $2,
+        enable_placement_predictions = $3,
+        opens_at = $4,
+        closes_at = $5,
+        exact_score_points = $6,
+        correct_outcome_points = $7,
+        champion_points = $8,
+        runner_up_points = $9,
+        third_place_points = $10,
+        status = $11
+      where phase_id = $1
+      returning id
+    `,
+    [
+      input.phaseId,
+      input.enableMatchPredictions,
+      input.enablePlacementPredictions,
+      input.opensAt,
+      input.closesAt,
+      input.exactScore,
+      input.correctOutcome,
+      input.champion,
+      input.runnerUp,
+      input.thirdPlace,
+      input.status,
+    ],
+  );
+
+  if (!result.rowCount) {
+    return { ok: false, message: "Regra da fase nao encontrada." };
+  }
+
+  return {
+    ok: true,
+    message: "Regra da fase atualizada.",
+    data: { updatedId: result.rows[0]!.id },
+  };
+}
+
+export async function createInvitePostgres(
+  input: InviteInput,
+): Promise<ActionResult<{ token: string }>> {
+  await ensureDatabaseSeeded();
+
+  const currentUserId = await getPostgresCurrentUser();
+  const token = nextId("invite-token");
+
+  await requiredPool().query(
+    `
+      insert into invites (
+        id,
+        email,
+        token,
+        role,
+        invited_by,
+        status,
+        expires_at
+      )
+      values ($1, $2, $3, $4, $5, $6, $7)
+    `,
+    [
+      nextId("invite"),
+      input.email,
+      token,
+      input.role,
+      currentUserId,
+      "pending",
+      input.expiresAt,
+    ],
+  );
+
+  return {
+    ok: true,
+    message: "Convite criado.",
+    data: { token },
+  };
+}
+
+export async function acceptInvitePostgres(
+  input: InviteAcceptanceInput,
+): Promise<ActionResult<{ userId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    const inviteResult = await client.query<{
+      id: string;
+      email: string;
+      role: "admin" | "member";
+      status: "pending" | "accepted" | "expired";
+      expires_at: string;
+    }>(
+      `
+        select id, email, role, status, expires_at
+        from invites
+        where token = $1
+        limit 1
+      `,
+      [input.token],
+    );
+
+    const invite = inviteResult.rows[0];
+
+    if (!invite) {
+      await client.query("rollback");
+      return { ok: false, message: "Convite nao encontrado." };
+    }
+
+    if (invite.status === "expired" || new Date(invite.expires_at) < new Date()) {
+      await client.query("rollback");
+      return { ok: false, message: "Convite expirado." };
+    }
+
+    const userId = nextId("user");
+    const timestamp = nowIso();
+
+    await client.query(
+      `
+        insert into users (id, email, password_hash, created_at)
+        values ($1, $2, $3, $4)
+      `,
+      [userId, invite.email, null, timestamp],
+    );
+
+    await client.query(
+      `
+        insert into profiles (id, user_id, full_name, role, created_at)
+        values ($1, $2, $3, $4, $5)
+      `,
+      [userId, userId, input.fullName, invite.role, timestamp],
+    );
+
+    await client.query(
+      `
+        insert into memberships (id, user_id, competition_id, role, joined_at)
+        values ($1, $2, $3, $4, $5)
+      `,
+      [
+        nextId("membership"),
+        userId,
+        sampleSnapshot.competition.id,
+        invite.role,
+        timestamp,
+      ],
+    );
+
+    await client.query(
+      `
+        update invites
+        set
+          status = 'accepted',
+          accepted_at = $2,
+          accepted_user_id = $3
+        where id = $1
+      `,
+      [invite.id, timestamp, userId],
+    );
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Convite aceito. Conta criada.",
+      data: { userId },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}

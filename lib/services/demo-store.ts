@@ -8,6 +8,7 @@ import {
   type InviteInput,
   type MatchPredictionInput,
   type OfficialResultInput,
+  type PhaseBatchPredictionInput,
   type PhaseRuleInput,
   type PlacementPredictionInput,
   type PlacementResultInput,
@@ -67,6 +68,50 @@ export function saveMatchPredictionDemo(
   });
 
   return { ok: true, message: "Palpite de jogo salvo.", data: { updatedId: id } };
+}
+
+export function savePhasePredictionsDemo(
+  input: PhaseBatchPredictionInput,
+): ActionResult<{ updatedCount: number }> {
+  let updatedCount = 0;
+
+  for (const prediction of input.predictions) {
+    const result = saveMatchPredictionDemo({
+      userId: input.userId,
+      matchId: prediction.matchId,
+      homeScore: prediction.homeScore,
+      awayScore: prediction.awayScore,
+    });
+
+    if (!result.ok) {
+      return { ok: false, message: result.message };
+    }
+
+    updatedCount += 1;
+  }
+
+  if (input.placementPrediction) {
+    const result = savePlacementPredictionDemo({
+      userId: input.userId,
+      competitionId: input.placementPrediction.competitionId,
+      championTeamId: input.placementPrediction.championTeamId,
+      runnerUpTeamId: input.placementPrediction.runnerUpTeamId,
+      thirdPlaceTeamId: input.placementPrediction.thirdPlaceTeamId,
+    });
+
+    if (!result.ok) {
+      return { ok: false, message: result.message };
+    }
+
+    updatedCount += 1;
+  }
+
+  return {
+    ok: true,
+    message:
+      updatedCount > 0 ? "Palpites da fase salvos." : "Nenhuma alteração enviada.",
+    data: { updatedCount },
+  };
 }
 
 export function savePlacementPredictionDemo(

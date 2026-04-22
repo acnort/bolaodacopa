@@ -78,11 +78,30 @@ export interface Match {
   id: string;
   phaseId: string;
   roundLabel: string;
+  stageGroup?: string;
   kickoffAt: string;
   venue: string;
-  homeTeamId: string;
-  awayTeamId: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
+  homePlaceholder?: string;
+  awayPlaceholder?: string;
   status: MatchStatus;
+}
+
+export interface PhaseBatchPredictionInput {
+  userId: string;
+  phaseId: string;
+  predictions: Array<{
+    matchId: string;
+    homeScore: number;
+    awayScore: number;
+  }>;
+  placementPrediction?: {
+    competitionId: string;
+    championTeamId: string;
+    runnerUpTeamId: string;
+    thirdPlaceTeamId: string;
+  };
 }
 
 export interface OfficialResult {

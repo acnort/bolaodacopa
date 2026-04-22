@@ -7,6 +7,7 @@ import type { ActionResult } from "@/lib/domain/types";
 import {
   acceptInviteAction as acceptInviteInternal,
   createInviteAction as createInviteInternal,
+  savePhasePredictionsBatchAction as savePhasePredictionsBatchInternal,
   saveMatchPredictionAction as saveMatchPredictionInternal,
   saveOfficialResultAction as saveOfficialResultInternal,
   savePhaseRuleAction as savePhaseRuleInternal,
@@ -47,6 +48,72 @@ export async function saveMatchPrediction(
     revalidatePath("/app/ranking");
     return result;
   } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function savePhasePredictionsBatch(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    const phaseId = String(formData.get("phaseId") ?? "");
+    const userId = String(formData.get("userId") ?? "");
+    const predictions = Array.from(formData.entries())
+      .filter(([key]) => key.startsWith("homeScore:"))
+      .flatMap(([key, value]) => {
+        const matchId = key.replace("homeScore:", "");
+        const awayKey = `awayScore:${matchId}`;
+        const awayValue = formData.get(awayKey);
+        const homeScoreRaw = String(value ?? "").trim();
+        const awayScoreRaw = String(awayValue ?? "").trim();
+
+        if (!homeScoreRaw && !awayScoreRaw) {
+          return [];
+        }
+
+        if (!homeScoreRaw || !awayScoreRaw) {
+          throw new Error("Preencha os dois placares antes de salvar a fase.");
+        }
+
+        return [
+          {
+            matchId,
+            homeScore: Number(homeScoreRaw),
+            awayScore: Number(awayScoreRaw),
+          },
+        ];
+      });
+
+    const championTeamId = String(formData.get("championTeamId") ?? "").trim();
+    const runnerUpTeamId = String(formData.get("runnerUpTeamId") ?? "").trim();
+    const thirdPlaceTeamId = String(formData.get("thirdPlaceTeamId") ?? "").trim();
+    const competitionId = String(formData.get("competitionId") ?? "").trim();
+
+    const result = await savePhasePredictionsBatchInternal({
+      userId,
+      phaseId,
+      predictions,
+      placementPrediction:
+        championTeamId && runnerUpTeamId && thirdPlaceTeamId && competitionId
+          ? {
+              competitionId,
+              championTeamId,
+              runnerUpTeamId,
+              thirdPlaceTeamId,
+            }
+          : undefined,
+    });
+
+    revalidatePath("/app");
+    revalidatePath("/app/palpites");
+    revalidatePath("/app/ranking");
+    revalidatePath("/app/podio");
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      return { ok: false, message: error.message };
+    }
     return toErrorResult(error);
   }
 }
