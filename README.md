@@ -24,10 +24,45 @@ Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 
 ```bash
 npm install
+npm run db:up
+npm run db:migrate
 npm run dev
 ```
 
 Abra `http://localhost:3000`.
+
+## Postgres local com Docker
+
+Para desenvolvimento local, o projeto sobe um `Postgres 16` via `docker compose`:
+
+```bash
+npm run db:up
+npm run db:migrate
+```
+
+Defaults locais:
+
+- host: `localhost`
+- porta: `5433`
+- database: `bolaov2`
+- user: `postgres`
+- password: `postgres`
+
+Connection string padrão do `.env.example`:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/bolaov2
+```
+
+Comandos úteis:
+
+```bash
+npm run db:up
+npm run db:down
+npm run db:reset
+npm run db:logs
+npm run db:migrate
+```
 
 ## Modo demo
 

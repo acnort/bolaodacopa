@@ -159,7 +159,7 @@ function buildRound32Matches() {
     return {
       id: `round32-${index + 1}`,
       phaseId: "phase-round-32" as const,
-      roundLabel: "16 avos",
+      roundLabel: "16-avos",
       kickoffAt: kickoffAt.toISOString(),
       venue: venues[index % venues.length]!,
       homePlaceholder,
@@ -191,8 +191,8 @@ function buildRound16Matches() {
       roundLabel: "Oitavas",
       kickoffAt: kickoffAt.toISOString(),
       venue: venues[index]!,
-      homePlaceholder: `Ganhador 16 avos ${index * 2 + 1}`,
-      awayPlaceholder: `Ganhador 16 avos ${index * 2 + 2}`,
+      homePlaceholder: `Ganhador 16-avos ${index * 2 + 1}`,
+      awayPlaceholder: `Ganhador 16-avos ${index * 2 + 2}`,
       status: "scheduled" as const,
     };
   });
@@ -270,7 +270,7 @@ export const sampleSnapshot: AppSnapshot = {
       id: "phase-round-32",
       competitionId: "world-cup-2026",
       slug: "16-avos",
-      name: "16 avos",
+      name: "16-avos",
       order: 2,
       startsAt: "2026-07-01T12:00:00.000Z",
       endsAt: "2026-07-04T23:59:59.000Z",

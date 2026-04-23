@@ -13,8 +13,10 @@ const initialState: ActionResult = { ok: false, message: "" };
 
 export function PhaseRuleForm({
   rule,
+  podium
 }: {
   rule: PredictionRule;
+  podium?: boolean;
 }) {
   const [state, formAction] = useActionState(savePhaseRule, initialState);
 
@@ -66,13 +68,33 @@ export function PhaseRuleForm({
           />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-5">
-        <Input name="exactScore" type="number" min={0} defaultValue={rule.scoring.exactScore} />
-        <Input name="correctOutcome" type="number" min={0} defaultValue={rule.scoring.correctOutcome} />
-        <Input name="champion" type="number" min={0} defaultValue={rule.scoring.champion} />
-        <Input name="runnerUp" type="number" min={0} defaultValue={rule.scoring.runnerUp} />
-        <Input name="thirdPlace" type="number" min={0} defaultValue={rule.scoring.thirdPlace} />
-      </div>
+      {podium ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="text-sm text-[color:var(--text-muted)]">Campeão</label>
+            <Input name="champion" type="number" min={0} defaultValue={rule.scoring.champion} />
+          </div>
+          <div>
+            <label className="text-sm text-[color:var(--text-muted)]">Vice</label>
+            <Input name="runnerUp" type="number" min={0} defaultValue={rule.scoring.runnerUp} />
+          </div>
+          <div>
+            <label className="text-sm text-[color:var(--text-muted)]">Terceiro</label>
+            <Input name="thirdPlace" type="number" min={0} defaultValue={rule.scoring.thirdPlace} />
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-sm text-[color:var(--text-muted)]">Exato</label>
+            <Input name="exactScore" type="number" min={0} defaultValue={rule.scoring.exactScore} />
+          </div>
+          <div>
+            <label className="text-sm text-[color:var(--text-muted)]">Vencedor</label>
+            <Input name="correctOutcome" type="number" min={0} defaultValue={rule.scoring.correctOutcome} />
+          </div>
+        </div>
+      )}      
       <input type="hidden" name="status" value={rule.status} />
       <FormFeedback state={state} />
       <SubmitButton className="w-full" pendingLabel="Atualizando fase...">

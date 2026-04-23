@@ -76,7 +76,7 @@ export default async function AdminPage() {
         </Card>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-2">
         {snapshot.phases.map((phase) => {
           const rule = snapshot.rules.find((item) => item.phaseId === phase.id);
           if (!rule) return null;
@@ -90,7 +90,7 @@ export default async function AdminPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <PhaseRuleForm rule={rule} />
+                <PhaseRuleForm rule={rule} podium={phase.id === 'phase-podium'} />
               </CardContent>
             </Card>
           );

@@ -113,8 +113,8 @@ function MatchCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3 flex justify-between">
+      <CardContent className="space-y-3">
+        <div className="flex justify-between">
           <div className="flex items-center gap-3">
             <TeamFlag code={homeTeam?.code} />
             <span className="font-semibold text-[color:var(--text-strong)]">
