@@ -1,5 +1,5 @@
 export type UserRole = "admin" | "member";
-export type InviteStatus = "pending" | "accepted" | "expired";
+export type SignupRequestStatus = "pending" | "approved" | "rejected";
 export type MatchStatus = "scheduled" | "in_progress" | "completed";
 export type ScoreSourceType = "match" | "placement";
 
@@ -11,15 +11,17 @@ export interface Profile {
   createdAt: string;
 }
 
-export interface Invite {
+export interface SignupRequest {
   id: string;
+  fullName: string;
   email: string;
   token: string;
   role: UserRole;
-  invitedBy: string;
-  status: InviteStatus;
-  expiresAt: string;
-  acceptedAt?: string;
+  status: SignupRequestStatus;
+  requestedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  approvedUserId?: string;
 }
 
 export interface Membership {
@@ -169,7 +171,7 @@ export interface AppSnapshot {
   results: OfficialResult[];
   placementResult: PlacementResult;
   profiles: Profile[];
-  invites: Invite[];
+  signupRequests: SignupRequest[];
   memberships: Membership[];
   matchPredictions: MatchPrediction[];
   placementPredictions: PlacementPrediction[];
@@ -218,21 +220,18 @@ export interface PhaseRuleInput {
   status: "draft" | "active" | "locked";
 }
 
-export interface InviteInput {
+export interface SignupRequestInput {
+  fullName: string;
   email: string;
-  role: UserRole;
-  expiresAt: string;
 }
 
-export interface InviteAcceptanceInput {
-  token: string;
-  fullName: string;
-  password?: string;
+export interface SignupRequestReviewInput {
+  requestId: string;
+  action: "approve" | "reject";
 }
 
 export interface AuthInput {
   email: string;
-  password?: string;
 }
 
 export interface ActionResult<T = unknown> {

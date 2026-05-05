@@ -6,8 +6,6 @@ import { sampleSnapshot } from "@/lib/data/sample-data";
 import type {
   ActionResult,
   AppSnapshot,
-  InviteAcceptanceInput,
-  InviteInput,
   MatchPredictionInput,
   OfficialResultInput,
   Phase,
@@ -16,6 +14,8 @@ import type {
   PlacementPredictionInput,
   PlacementResultInput,
   PredictionRule,
+  SignupRequestInput,
+  SignupRequestReviewInput,
   Team,
 } from "@/lib/domain/types";
 import { getDatabasePool } from "@/lib/services/database/pool";
@@ -231,32 +231,34 @@ async function ensureDatabaseSeeded() {
       );
     }
 
-    for (const invite of sampleSnapshot.invites) {
+    for (const request of sampleSnapshot.signupRequests) {
       await client.query(
         `
-          insert into invites (
+          insert into signup_requests (
             id,
+            full_name,
             email,
             token,
             role,
-            invited_by,
-            accepted_user_id,
             status,
-            expires_at,
-            accepted_at
+            requested_at,
+            reviewed_at,
+            reviewed_by,
+            approved_user_id
           )
-          values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `,
         [
-          invite.id,
-          invite.email,
-          invite.token,
-          invite.role,
-          invite.invitedBy,
-          null,
-          invite.status,
-          invite.expiresAt,
-          invite.acceptedAt ?? null,
+          request.id,
+          request.fullName,
+          request.email,
+          request.token,
+          request.role,
+          request.status,
+          request.requestedAt,
+          request.reviewedAt ?? null,
+          request.reviewedBy ?? null,
+          request.approvedUserId ?? null,
         ],
       );
     }
@@ -483,7 +485,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     resultsResult,
     placementResult,
     profilesResult,
-    invitesResult,
+    signupRequestsResult,
     membershipsResult,
     matchPredictionsResult,
     placementPredictionsResult,
@@ -643,18 +645,30 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     ),
     pool.query<{
       id: string;
+      full_name: string;
       email: string;
       token: string;
       role: "admin" | "member";
-      invited_by: string;
-      status: "pending" | "accepted" | "expired";
-      expires_at: string;
-      accepted_at: string | null;
+      status: "pending" | "approved" | "rejected";
+      requested_at: string;
+      reviewed_at: string | null;
+      reviewed_by: string | null;
+      approved_user_id: string | null;
     }>(
       `
-        select id, email, token, role, invited_by, status, expires_at, accepted_at
-        from invites
-        order by expires_at desc, id desc
+        select
+          id,
+          full_name,
+          email,
+          token,
+          role,
+          status,
+          requested_at,
+          reviewed_at,
+          reviewed_by,
+          approved_user_id
+        from signup_requests
+        order by requested_at desc, id desc
       `,
     ),
     pool.query<{
@@ -759,15 +773,19 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       role: row.role,
       createdAt: new Date(row.created_at).toISOString(),
     })),
-    invites: invitesResult.rows.map((row) => ({
+    signupRequests: signupRequestsResult.rows.map((row) => ({
       id: row.id,
+      fullName: row.full_name,
       email: row.email,
       token: row.token,
       role: row.role,
-      invitedBy: row.invited_by,
       status: row.status,
-      expiresAt: new Date(row.expires_at).toISOString(),
-      acceptedAt: row.accepted_at ? new Date(row.accepted_at).toISOString() : undefined,
+      requestedAt: new Date(row.requested_at).toISOString(),
+      reviewedAt: row.reviewed_at
+        ? new Date(row.reviewed_at).toISOString()
+        : undefined,
+      reviewedBy: row.reviewed_by ?? undefined,
+      approvedUserId: row.approved_user_id ?? undefined,
     })),
     memberships: membershipsResult.rows.map((row) => ({
       id: row.id,
@@ -1155,47 +1173,137 @@ export async function savePhaseRulePostgres(
   };
 }
 
-export async function createInvitePostgres(
-  input: InviteInput,
-): Promise<ActionResult<{ token: string }>> {
+export async function removeSignupRequestPostgres(
+  requestId: string,
+): Promise<ActionResult<{ removedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const request = await requiredPool().query<{
+    id: string;
+    status: "pending" | "approved" | "rejected";
+  }>("select id, status from signup_requests where id = $1 limit 1", [requestId]);
+
+  if (!request.rowCount) {
+    return { ok: false, message: "Solicitação não encontrada." };
+  }
+
+  if (request.rows[0]!.status === "approved") {
+    return { ok: false, message: "Cadastros aprovados não podem ser removidos." };
+  }
+
+  await requiredPool().query("delete from signup_requests where id = $1", [requestId]);
+
+  return {
+    ok: true,
+    message: "Solicitação removida.",
+    data: { removedId: requestId },
+  };
+}
+
+export async function removeMemberPostgres(
+  userId: string,
+): Promise<ActionResult<{ removedId: string }>> {
   await ensureDatabaseSeeded();
 
   const currentUserId = await getPostgresCurrentUser();
-  const token = nextId("invite-token");
+
+  if (userId === currentUserId) {
+    return { ok: false, message: "Voce nao pode remover sua propria conta." };
+  }
+
+  const profile = await requiredPool().query<{ user_id: string }>(
+    "select user_id from profiles where id = $1 limit 1",
+    [userId],
+  );
+
+  if (!profile.rowCount) {
+    return { ok: false, message: "Membro nao encontrado." };
+  }
+
+  await requiredPool().query("delete from users where id = $1", [
+    profile.rows[0]!.user_id,
+  ]);
+
+  return {
+    ok: true,
+    message: "Membro removido.",
+    data: { removedId: userId },
+  };
+}
+
+export async function createSignupRequestPostgres(
+  input: SignupRequestInput,
+): Promise<ActionResult<{ token: string }>> {
+  await ensureDatabaseSeeded();
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingUser = await requiredPool().query<{ id: string }>(
+    `
+      select u.id
+      from users u
+      where lower(u.email) = lower($1)
+      limit 1
+    `,
+    [normalizedEmail],
+  );
+
+  if (existingUser.rowCount) {
+    return { ok: false, message: "Este email já foi aprovado no bolão." };
+  }
+
+  const existingRequest = await requiredPool().query<{ id: string }>(
+    `
+      select id
+      from signup_requests
+      where lower(email) = lower($1)
+        and status in ('pending', 'approved')
+      limit 1
+    `,
+    [normalizedEmail],
+  );
+
+  if (existingRequest.rowCount) {
+    return {
+      ok: false,
+      message: "Já existe uma solicitação aberta ou aprovada para este email.",
+    };
+  }
+
+  const token = nextId("signup-token");
 
   await requiredPool().query(
     `
-      insert into invites (
+      insert into signup_requests (
         id,
+        full_name,
         email,
         token,
         role,
-        invited_by,
         status,
-        expires_at
+        requested_at
       )
       values ($1, $2, $3, $4, $5, $6, $7)
     `,
     [
-      nextId("invite"),
-      input.email,
+      nextId("signup-request"),
+      input.fullName,
+      normalizedEmail,
       token,
-      input.role,
-      currentUserId,
+      "member",
       "pending",
-      input.expiresAt,
+      nowIso(),
     ],
   );
 
   return {
     ok: true,
-    message: "Convite criado.",
+    message: "Cadastro enviado. Agora é só aguardar a aprovação.",
     data: { token },
   };
 }
 
-export async function acceptInvitePostgres(
-  input: InviteAcceptanceInput,
+export async function reviewSignupRequestPostgres(
+  input: SignupRequestReviewInput,
 ): Promise<ActionResult<{ userId: string }>> {
   await ensureDatabaseSeeded();
 
@@ -1204,43 +1312,82 @@ export async function acceptInvitePostgres(
   try {
     await client.query("begin");
 
-    const inviteResult = await client.query<{
+    const requestResult = await client.query<{
       id: string;
+      full_name: string;
       email: string;
       role: "admin" | "member";
-      status: "pending" | "accepted" | "expired";
-      expires_at: string;
+      status: "pending" | "approved" | "rejected";
     }>(
       `
-        select id, email, role, status, expires_at
-        from invites
-        where token = $1
+        select id, full_name, email, role, status
+        from signup_requests
+        where id = $1
         limit 1
       `,
-      [input.token],
+      [input.requestId],
     );
 
-    const invite = inviteResult.rows[0];
+    const request = requestResult.rows[0];
 
-    if (!invite) {
+    if (!request) {
       await client.query("rollback");
-      return { ok: false, message: "Convite nao encontrado." };
+      return { ok: false, message: "Solicitação não encontrada." };
     }
 
-    if (invite.status === "expired" || new Date(invite.expires_at) < new Date()) {
+    if (request.status !== "pending") {
       await client.query("rollback");
-      return { ok: false, message: "Convite expirado." };
+      return { ok: false, message: "Esta solicitação já foi analisada." };
+    }
+
+    const timestamp = nowIso();
+    const currentUserId = await getPostgresCurrentUser();
+
+    if (input.action === "reject") {
+      await client.query(
+        `
+          update signup_requests
+          set
+            status = 'rejected',
+            reviewed_at = $2,
+            reviewed_by = $3
+          where id = $1
+        `,
+        [request.id, timestamp, currentUserId],
+      );
+
+      await client.query("commit");
+
+      return {
+        ok: true,
+        message: "Cadastro recusado.",
+        data: { userId: "" },
+      };
+    }
+
+    const existingUser = await client.query<{ id: string }>(
+      `
+        select id
+        from users
+        where lower(email) = lower($1)
+        limit 1
+      `,
+      [request.email],
+    );
+
+    if (existingUser.rowCount) {
+      await client.query("rollback");
+      return { ok: false, message: "Este email já foi aprovado no bolão." };
     }
 
     const userId = nextId("user");
-    const timestamp = nowIso();
 
     await client.query(
       `
         insert into users (id, email, password_hash, created_at)
         values ($1, $2, $3, $4)
       `,
-      [userId, invite.email, null, timestamp],
+      [userId, request.email, null, timestamp],
     );
 
     await client.query(
@@ -1248,7 +1395,7 @@ export async function acceptInvitePostgres(
         insert into profiles (id, user_id, full_name, role, created_at)
         values ($1, $2, $3, $4, $5)
       `,
-      [userId, userId, input.fullName, invite.role, timestamp],
+      [userId, userId, request.full_name, request.role, timestamp],
     );
 
     await client.query(
@@ -1260,28 +1407,29 @@ export async function acceptInvitePostgres(
         nextId("membership"),
         userId,
         sampleSnapshot.competition.id,
-        invite.role,
+        request.role,
         timestamp,
       ],
     );
 
     await client.query(
       `
-        update invites
+        update signup_requests
         set
-          status = 'accepted',
-          accepted_at = $2,
-          accepted_user_id = $3
+          status = 'approved',
+          reviewed_at = $2,
+          reviewed_by = $3,
+          approved_user_id = $4
         where id = $1
       `,
-      [invite.id, timestamp, userId],
+      [request.id, timestamp, currentUserId, userId],
     );
 
     await client.query("commit");
 
     return {
       ok: true,
-      message: "Convite aceito. Conta criada.",
+      message: "Cadastro aprovado.",
       data: { userId },
     };
   } catch (error) {

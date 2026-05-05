@@ -44,16 +44,17 @@ create table if not exists memberships (
   unique (user_id, competition_id)
 );
 
-create table if not exists invites (
+create table if not exists signup_requests (
   id text primary key,
+  full_name text not null,
   email text not null,
   token text not null unique,
   role text not null check (role in ('admin', 'member')),
-  invited_by text not null references profiles(id) on delete restrict,
-  accepted_user_id text references users(id) on delete set null,
-  status text not null check (status in ('pending', 'accepted', 'expired')),
-  expires_at timestamptz not null,
-  accepted_at timestamptz
+  status text not null check (status in ('pending', 'approved', 'rejected')),
+  requested_at timestamptz not null default timezone('utc', now()),
+  reviewed_at timestamptz,
+  reviewed_by text references profiles(id) on delete set null,
+  approved_user_id text references users(id) on delete set null
 );
 
 create table if not exists phases (
@@ -158,4 +159,4 @@ create index if not exists idx_teams_competition_id on teams (competition_id);
 create index if not exists idx_matches_phase_id on matches (phase_id);
 create index if not exists idx_matches_kickoff_at on matches (kickoff_at);
 create index if not exists idx_predictions_user_id on match_predictions (user_id);
-create index if not exists idx_invites_email on invites (email);
+create index if not exists idx_signup_requests_email on signup_requests (email);

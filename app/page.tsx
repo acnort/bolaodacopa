@@ -13,8 +13,8 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: "Acesso por convite",
-    description: "Entrada privada com magic link no primeiro acesso e senha opcional depois.",
+    title: "Aprovação por admin",
+    description: "Cadastro simples por link, com liberação manual antes de entrar no bolão.",
   },
   {
     icon: Trophy,
@@ -24,7 +24,7 @@ const features = [
   {
     icon: MailPlus,
     title: "Admin centralizado",
-    description: "Convites, fases, resultados oficiais e apuração controlados num só painel.",
+    description: "Cadastros, fases, resultados oficiais e apuração controlados num só painel.",
   },
 ];
 
@@ -44,7 +44,7 @@ export default function Home() {
               <Link href="/entrar">Entrar</Link>
             </Button>
             <Button asChild size="sm">
-              <Link href="/app">Abrir dashboard</Link>
+              <Link href="/cadastro">Pedir acesso</Link>
             </Button>
           </div>
         </header>
@@ -57,20 +57,20 @@ export default function Home() {
                 O bolão da Copa que funciona para grupo pequeno sem virar planilha.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-[color:var(--text-muted)]">
-                Convites controlados, palpites por fase, ranking automático e um admin simples
+                Cadastro com aprovação, palpites por fase, ranking automático e um admin simples
                 para publicar resultados oficiais mesmo se a API externa falhar.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
-                <Link href="/app">
-                  Ver versão inicial
+                <Link href="/entrar">
+                  Entrar no bolão
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/convite/convite-pedro-2026">Testar fluxo de convite</Link>
-              </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/cadastro">Pedir acesso</Link>
+            </Button>
             </div>
           </div>
 
@@ -99,7 +99,7 @@ export default function Home() {
                 <div className="rounded-[1.5rem] bg-white/8 p-4 sm:col-span-2">
                   <p className="text-sm text-white/70">Modo de operação</p>
                   <p className="mt-2 text-base font-semibold">
-                    Resultado manual no admin + adapter preparado para API futura.
+                    Resultado manual no admin + cadastro com aprovação centralizada.
                   </p>
                 </div>
               </div>

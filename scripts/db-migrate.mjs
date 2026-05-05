@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,10 +9,7 @@ const { Client } = pg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
-const migrationPath = path.resolve(
-  __dirname,
-  "../database/migrations/202604210001_initial.sql",
-);
+const migrationsDir = path.resolve(__dirname, "../database/migrations");
 
 try {
   const envFile = await readFile(envPath, "utf8");
@@ -42,8 +39,6 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const sql = await readFile(migrationPath, "utf8");
-
 const client = new Client({
   connectionString,
   ssl:
@@ -54,8 +49,16 @@ const client = new Client({
 
 try {
   await client.connect();
-  await client.query(sql);
-  console.log(`Migração aplicada com sucesso: ${migrationPath}`);
+  const migrationFiles = (await readdir(migrationsDir))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+
+  for (const file of migrationFiles) {
+    const migrationPath = path.resolve(migrationsDir, file);
+    const sql = await readFile(migrationPath, "utf8");
+    await client.query(sql);
+    console.log(`Migração aplicada com sucesso: ${migrationPath}`);
+  }
 } finally {
   await client.end();
 }

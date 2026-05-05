@@ -4,14 +4,14 @@ import { demoCurrentUserId, sampleSnapshot } from "@/lib/data/sample-data";
 import {
   type ActionResult,
   type AppSnapshot,
-  type InviteAcceptanceInput,
-  type InviteInput,
   type MatchPredictionInput,
   type OfficialResultInput,
   type PhaseBatchPredictionInput,
   type PhaseRuleInput,
   type PlacementPredictionInput,
   type PlacementResultInput,
+  type SignupRequestInput,
+  type SignupRequestReviewInput,
 } from "@/lib/domain/types";
 
 const state = {
@@ -231,55 +231,166 @@ export function savePhaseRuleDemo(
   };
 }
 
-export function createInviteDemo(input: InviteInput): ActionResult<{ token: string }> {
-  const token = nextId("invite-token");
-  state.snapshot.invites.unshift({
-    id: nextId("invite"),
+export function removeSignupRequestDemo(
+  requestId: string,
+): ActionResult<{ removedId: string }> {
+  const request = state.snapshot.signupRequests.find((item) => item.id === requestId);
+
+  if (!request) {
+    return { ok: false, message: "Solicitação não encontrada." };
+  }
+
+  if (request.status === "approved") {
+    return { ok: false, message: "Cadastros aprovados não podem ser removidos." };
+  }
+
+  state.snapshot.signupRequests = state.snapshot.signupRequests.filter(
+    (item) => item.id !== requestId,
+  );
+
+  return {
+    ok: true,
+    message: "Solicitação removida.",
+    data: { removedId: requestId },
+  };
+}
+
+export function removeMemberDemo(
+  userId: string,
+): ActionResult<{ removedId: string }> {
+  if (userId === getDemoCurrentUser()) {
+    return { ok: false, message: "Voce nao pode remover sua propria conta." };
+  }
+
+  const profile = state.snapshot.profiles.find((item) => item.id === userId);
+
+  if (!profile) {
+    return { ok: false, message: "Membro nao encontrado." };
+  }
+
+  state.snapshot.profiles = state.snapshot.profiles.filter(
+    (item) => item.id !== userId,
+  );
+  state.snapshot.memberships = state.snapshot.memberships.filter(
+    (item) => item.userId !== userId,
+  );
+  state.snapshot.matchPredictions = state.snapshot.matchPredictions.filter(
+    (item) => item.userId !== userId,
+  );
+  state.snapshot.placementPredictions = state.snapshot.placementPredictions.filter(
+    (item) => item.userId !== userId,
+  );
+  state.snapshot.signupRequests = state.snapshot.signupRequests.map((item) =>
+    item.approvedUserId === userId
+      ? { ...item, approvedUserId: undefined }
+      : item,
+  );
+
+  return {
+    ok: true,
+    message: "Membro removido.",
+    data: { removedId: userId },
+  };
+}
+
+export function createSignupRequestDemo(
+  input: SignupRequestInput,
+): ActionResult<{ token: string }> {
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const existingProfile = state.snapshot.profiles.find(
+    (item) => item.email.toLowerCase() === normalizedEmail,
+  );
+
+  if (existingProfile) {
+    return { ok: false, message: "Este email já foi aprovado no bolão." };
+  }
+
+  const existingRequest = state.snapshot.signupRequests.find(
+    (item) => item.email.toLowerCase() === normalizedEmail && item.status !== "rejected",
+  );
+
+  if (existingRequest) {
+    return {
+      ok: false,
+      message: "Já existe uma solicitação aberta ou aprovada para este email.",
+    };
+  }
+
+  const token = nextId("signup-token");
+  state.snapshot.signupRequests.unshift({
+    id: nextId("signup-request"),
+    fullName: input.fullName,
     email: input.email,
     token,
-    role: input.role,
-    invitedBy: getDemoCurrentUser(),
+    role: "member",
     status: "pending",
-    expiresAt: input.expiresAt,
+    requestedAt: nowIso(),
   });
 
   return {
     ok: true,
-    message: "Convite criado em modo demonstracao.",
+    message: "Cadastro enviado. Agora é só aguardar a aprovação.",
     data: { token },
   };
 }
 
-export function acceptInviteDemo(
-  input: InviteAcceptanceInput,
+export function reviewSignupRequestDemo(
+  input: SignupRequestReviewInput,
 ): ActionResult<{ userId: string }> {
-  const invite = state.snapshot.invites.find((item) => item.token === input.token);
-  if (!invite) {
-    return { ok: false, message: "Convite nao encontrado." };
+  const request = state.snapshot.signupRequests.find(
+    (item) => item.id === input.requestId,
+  );
+
+  if (!request) {
+    return { ok: false, message: "Solicitação não encontrada." };
   }
 
-  invite.status = "accepted";
-  invite.acceptedAt = nowIso();
+  if (request.status !== "pending") {
+    return { ok: false, message: "Esta solicitação já foi analisada." };
+  }
+
+  request.reviewedAt = nowIso();
+  request.reviewedBy = getDemoCurrentUser();
+
+  if (input.action === "reject") {
+    request.status = "rejected";
+    return {
+      ok: true,
+      message: "Cadastro recusado.",
+      data: { userId: "" },
+    };
+  }
+
+  const existingProfile = state.snapshot.profiles.find(
+    (item) => item.email.toLowerCase() === request.email.toLowerCase(),
+  );
+
+  if (existingProfile) {
+    return { ok: false, message: "Este email já foi aprovado no bolão." };
+  }
 
   const userId = nextId("user");
+  request.status = "approved";
+  request.approvedUserId = userId;
+
   state.snapshot.profiles.push({
     id: userId,
-    fullName: input.fullName,
-    email: invite.email,
-    role: invite.role,
+    fullName: request.fullName,
+    email: request.email,
+    role: request.role,
     createdAt: nowIso(),
   });
   state.snapshot.memberships.push({
     id: nextId("membership"),
     userId,
     competitionId: state.snapshot.competition.id,
-    role: invite.role,
+    role: request.role,
     joinedAt: nowIso(),
   });
 
   return {
     ok: true,
-    message: "Convite aceito. Conta criada em modo demonstracao.",
+    message: "Cadastro aprovado.",
     data: { userId },
   };
 }

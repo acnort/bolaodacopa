@@ -40,5 +40,10 @@ export function TabsContent({
   className,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content className={cn("mt-6", className)} {...props} />;
+  return (
+    <TabsPrimitive.Content
+      className={cn("mt-6 data-[state=inactive]:hidden", className)}
+      {...props}
+    />
+  );
 }

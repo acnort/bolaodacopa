@@ -1,14 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { isInviteValid, isRuleOpen } from "@/lib/domain/scoring";
+import { isRuleOpen } from "@/lib/domain/scoring";
 import type { PredictionRule } from "@/lib/domain/types";
 
 describe("window validation", () => {
-  it("marks invites as valid only before expiration", () => {
-    expect(isInviteValid("2026-06-01T00:00:00.000Z", new Date("2026-05-20T00:00:00.000Z"))).toBe(true);
-    expect(isInviteValid("2026-06-01T00:00:00.000Z", new Date("2026-06-10T00:00:00.000Z"))).toBe(false);
-  });
-
   it("respects phase status and time window", () => {
     const rule: PredictionRule = {
       id: "rule-1",

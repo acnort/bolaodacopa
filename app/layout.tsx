@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Bolão da Copa",
   },
   description:
-    "Bolão privado da Copa do Mundo com convites, palpites por fase, ranking e painel admin.",
+    "Bolão privado da Copa do Mundo com cadastro aprovado por admin, palpites por fase, ranking e painel admin.",
 };
 
 export default function RootLayout({

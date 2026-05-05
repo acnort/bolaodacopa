@@ -3,12 +3,13 @@
 Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 
 - site responsivo para desktop e mobile
-- auth por convite com primeiro acesso via magic link
+- cadastro público com aprovação manual por admin
+- acesso privado por email aprovado e sessão via cookie HTTP-only
 - palpites de jogos e pódio final
 - ranking geral com desempate por acerto exato e depois resultado correto
-- painel admin para convites, regras por fase e resultados oficiais
+- painel admin para solicitações de cadastro, membros, regras por fase e resultados oficiais
 - fonte manual de resultados no v1, com `ResultsProvider` preparado para `API-Football`
-- persistência planejada em `Postgres` puro
+- persistência em `Postgres` puro, com fallback demo em memória
 
 ## Stack
 
@@ -71,13 +72,15 @@ Sem `DATABASE_URL` configurada, a aplicação roda em modo demonstrativo com:
 - snapshot inicial em memória
 - server actions reais
 - persistência temporária durante a sessão do servidor
-- fluxo de convite e admin já navegável para validar UX e regras
+- fluxo de cadastro, login por email aprovado e admin já navegável para validar UX e regras
 
 ## Rotas principais
 
 - `/` landing pública
-- `/entrar` login por magic link ou senha
-- `/convite/[token]` aceite de convite
+- `/cadastro` solicitação pública de acesso
+- `/cadastro/status/[token]` acompanhamento da solicitação
+- `/entrar` login por email já aprovado
+- `/convite/[token]` rota legada que redireciona para o status do cadastro
 - `/app` ranking privado
 - `/app/palpites` palpites por fase
 - `/app/admin` painel administrativo
@@ -96,8 +99,14 @@ Variáveis necessárias:
 
 - `DATABASE_URL`
 - `DATABASE_SSL`
-- `AUTH_SECRET`
 - `APP_URL`
+
+Variáveis opcionais de desenvolvimento:
+
+- `APP_CURRENT_USER_ID`
+- `APP_CURRENT_USER_EMAIL`
+
+Observação: o login atual é propositalmente simples para o MVP privado. Ele valida se o email já está aprovado e grava o id do perfil no cookie HTTP-only `bolao-user-id`.
 
 ## API-Football
 
@@ -152,5 +161,6 @@ npm run build
 
 - O contrato `ResultsProvider` suporta provider mock e `API-Football`.
 - Os grupos oficiais de 2026 estão espelhados no sample local e em seed SQL para o banco.
-- A aplicação ainda usa store demo neste bootstrap inicial; a camada `Postgres` agora está preparada como direção oficial da persistência.
+- Sem `DATABASE_URL`, a aplicação usa store demo em memória; com `DATABASE_URL`, usa Postgres.
+- O fluxo antigo de convites foi substituído por solicitações de cadastro aprovadas no admin.
 - Não há qualquer fluxo financeiro no app.

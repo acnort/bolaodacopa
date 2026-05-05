@@ -1,27 +1,36 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { acceptInvite } from "@/app/actions";
+import { createSignupRequest } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/domain/types";
 
-const initialState: ActionResult = { ok: false, message: "" };
+const initialState: ActionResult<{ token: string }> = { ok: false, message: "" };
 
-export function InviteAcceptanceForm({ token }: { token: string }) {
-  const [state, formAction] = useActionState(acceptInvite, initialState);
+export function SignupForm() {
+  const router = useRouter();
+  const [state, formAction] = useActionState(createSignupRequest, initialState);
+  const token =
+    state.data && typeof state.data === "object" && "token" in state.data
+      ? String(state.data.token)
+      : undefined;
 
   useEffect(() => {
     if (!state.message) return;
     toast[state.ok ? "success" : "error"](state.message);
-  }, [state]);
+
+    if (state.ok && token) {
+      router.push(`/cadastro/status/${token}`);
+    }
+  }, [router, state, token]);
 
   return (
     <form action={formAction} className="space-y-4">
-      <input type="hidden" name="token" value={token} />
       <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Nome completo
@@ -29,15 +38,19 @@ export function InviteAcceptanceForm({ token }: { token: string }) {
         <Input name="fullName" placeholder="Seu nome" />
         <FormFeedback field="fullName" state={state} />
       </div>
+
       <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
-          Senha inicial
+          Email
         </label>
-        <Input name="password" type="password" placeholder="Opcional no primeiro acesso" />
+        <Input name="email" type="email" placeholder="voce@exemplo.com" />
+        <FormFeedback field="email" state={state} />
       </div>
+
       <FormFeedback state={state} />
-      <SubmitButton className="w-full" pendingLabel="Concluindo cadastro...">
-        Aceitar convite
+
+      <SubmitButton className="w-full" pendingLabel="Enviando cadastro...">
+        Solicitar acesso
       </SubmitButton>
     </form>
   );

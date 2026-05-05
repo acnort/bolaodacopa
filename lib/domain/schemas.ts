@@ -69,19 +69,28 @@ export const phaseRuleSchema = z.object({
   status: z.enum(["draft", "active", "locked"]),
 });
 
-export const inviteSchema = z.object({
-  email: z.email(),
-  role: z.enum(["admin", "member"]),
-  expiresAt: z.string().min(1),
+export const phaseRulesBatchSchema = z.object({
+  rules: z.array(phaseRuleSchema).min(1),
 });
 
-export const inviteAcceptanceSchema = z.object({
-  token: z.string().min(8),
+export const signupRequestSchema = z.object({
   fullName: z.string().min(3).max(80),
-  password: z.string().min(8).max(100).optional().or(z.literal("")),
+  email: z.email(),
+});
+
+export const signupRequestRemovalSchema = z.object({
+  requestId: z.string().min(1),
+});
+
+export const memberRemovalSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export const signupRequestReviewSchema = z.object({
+  requestId: z.string().min(1),
+  action: z.enum(["approve", "reject"]),
 });
 
 export const authSchema = z.object({
   email: z.email(),
-  password: z.string().min(8).max(100).optional().or(z.literal("")),
 });

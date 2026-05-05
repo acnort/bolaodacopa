@@ -2,17 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 
-import { inviteAcceptanceSchema, inviteSchema, matchPredictionSchema, officialResultSchema, phaseRuleSchema, placementPredictionSchema, placementResultSchema } from "@/lib/domain/schemas";
+import { authSchema, matchPredictionSchema, memberRemovalSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
 import type { ActionResult } from "@/lib/domain/types";
 import {
-  acceptInviteAction as acceptInviteInternal,
-  createInviteAction as createInviteInternal,
+  removeMemberAction as removeMemberInternal,
+  removeSignupRequestAction as removeSignupRequestInternal,
+  reviewSignupRequestAction as reviewSignupRequestInternal,
   savePhasePredictionsBatchAction as savePhasePredictionsBatchInternal,
   saveMatchPredictionAction as saveMatchPredictionInternal,
   saveOfficialResultAction as saveOfficialResultInternal,
   savePhaseRuleAction as savePhaseRuleInternal,
+  savePhaseRulesBatchAction as savePhaseRulesBatchInternal,
   savePlacementPredictionAction as savePlacementPredictionInternal,
   savePlacementResultAction as savePlacementResultInternal,
+  signInAction as signInInternal,
+  createSignupRequestAction as createSignupRequestInternal,
 } from "@/lib/services/app-service";
 
 function toErrorResult(error: unknown): ActionResult {
@@ -141,37 +145,18 @@ export async function savePlacementPrediction(
   }
 }
 
-export async function createInvite(
+export async function createSignupRequest(
   _prevState: ActionResult | undefined,
   formData: FormData,
 ) {
   try {
-    inviteSchema.parse({
-      email: formData.get("email"),
-      role: formData.get("role"),
-      expiresAt: formData.get("expiresAt"),
-    });
-
-    const result = await createInviteInternal(formData);
-    revalidatePath("/app/admin");
-    return result;
-  } catch (error) {
-    return toErrorResult(error);
-  }
-}
-
-export async function acceptInvite(
-  _prevState: ActionResult | undefined,
-  formData: FormData,
-) {
-  try {
-    inviteAcceptanceSchema.parse({
-      token: formData.get("token"),
+    signupRequestSchema.parse({
       fullName: formData.get("fullName"),
-      password: formData.get("password"),
+      email: formData.get("email"),
     });
 
-    const result = await acceptInviteInternal(formData);
+    const result = await createSignupRequestInternal(formData);
+    revalidatePath("/cadastro");
     revalidatePath("/app/admin");
     return result;
   } catch (error) {
@@ -179,22 +164,19 @@ export async function acceptInvite(
   }
 }
 
-export async function saveOfficialResult(
+export async function reviewSignupRequest(
   _prevState: ActionResult | undefined,
   formData: FormData,
 ) {
   try {
-    officialResultSchema.parse({
-      matchId: formData.get("matchId"),
-      homeScore: formData.get("homeScore"),
-      awayScore: formData.get("awayScore"),
-      status: formData.get("status"),
+    signupRequestReviewSchema.parse({
+      requestId: formData.get("requestId"),
+      action: formData.get("action"),
     });
 
-    const result = await saveOfficialResultInternal(formData);
-    revalidatePath("/app");
+    const result = await reviewSignupRequestInternal(formData);
     revalidatePath("/app/admin");
-    revalidatePath("/app/ranking");
+    revalidatePath("/cadastro");
     return result;
   } catch (error) {
     return toErrorResult(error);
@@ -248,6 +230,116 @@ export async function savePhaseRule(
     revalidatePath("/app/admin");
     revalidatePath("/app/palpites");
     revalidatePath("/app/podio");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function savePhaseRulesBatch(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    const phaseIds = formData.getAll("phaseId").map(String);
+    const rules = phaseIds.map((phaseId) => ({
+      phaseId,
+      enableMatchPredictions:
+        formData.get(`enableMatchPredictions:${phaseId}`) === "true",
+      enablePlacementPredictions:
+        formData.get(`enablePlacementPredictions:${phaseId}`) === "true",
+      opensAt: formData.get(`opensAt:${phaseId}`),
+      closesAt: formData.get(`closesAt:${phaseId}`),
+      exactScore: formData.get(`exactScore:${phaseId}`),
+      correctOutcome: formData.get(`correctOutcome:${phaseId}`),
+      champion: formData.get(`champion:${phaseId}`),
+      runnerUp: formData.get(`runnerUp:${phaseId}`),
+      thirdPlace: formData.get(`thirdPlace:${phaseId}`),
+      status: formData.get(`status:${phaseId}`),
+    }));
+
+    const parsed = phaseRulesBatchSchema.parse({ rules });
+    const result = await savePhaseRulesBatchInternal(parsed.rules);
+
+    revalidatePath("/app");
+    revalidatePath("/app/admin");
+    revalidatePath("/app/palpites");
+    revalidatePath("/app/ranking");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function removeSignupRequest(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    signupRequestRemovalSchema.parse({
+      requestId: formData.get("requestId"),
+    });
+
+    const result = await removeSignupRequestInternal(formData);
+    revalidatePath("/app/admin");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function signIn(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    authSchema.parse({
+      email: formData.get("email"),
+    });
+
+    const result = await signInInternal(formData);
+    revalidatePath("/app");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function saveOfficialResult(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    officialResultSchema.parse({
+      matchId: formData.get("matchId"),
+      homeScore: formData.get("homeScore"),
+      awayScore: formData.get("awayScore"),
+      status: formData.get("status"),
+    });
+
+    const result = await saveOfficialResultInternal(formData);
+    revalidatePath("/app");
+    revalidatePath("/app/admin");
+    revalidatePath("/app/ranking");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function removeMember(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    memberRemovalSchema.parse({
+      userId: formData.get("userId"),
+    });
+
+    const result = await removeMemberInternal(formData);
+    revalidatePath("/app");
+    revalidatePath("/app/admin");
+    revalidatePath("/app/ranking");
     return result;
   } catch (error) {
     return toErrorResult(error);

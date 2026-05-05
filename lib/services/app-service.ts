@@ -1,15 +1,18 @@
 import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
 
 import { buildLeaderboard, buildScoreEntries, isRuleOpen } from "@/lib/domain/scoring";
-import type { ActionResult, AppSnapshot, PhaseBatchPredictionInput } from "@/lib/domain/types";
+import type { ActionResult, AppSnapshot, PhaseBatchPredictionInput, PhaseRuleInput } from "@/lib/domain/types";
 import { isDatabaseConfigured } from "@/lib/services/database/shared";
 import {
-  acceptInviteDemo,
-  createInviteDemo,
+  createSignupRequestDemo,
   getDemoCurrentUser,
   getDemoSnapshot,
+  removeMemberDemo,
+  removeSignupRequestDemo,
+  reviewSignupRequestDemo,
   savePhasePredictionsDemo,
   saveMatchPredictionDemo,
   saveOfficialResultDemo,
@@ -19,10 +22,12 @@ import {
 } from "@/lib/services/demo-store";
 import { isApiFootballConfigured } from "@/lib/services/api-football-config";
 import {
-  acceptInvitePostgres,
-  createInvitePostgres,
+  createSignupRequestPostgres,
   getPostgresCurrentUser,
   getPostgresSnapshot,
+  removeMemberPostgres,
+  removeSignupRequestPostgres,
+  reviewSignupRequestPostgres,
   saveMatchPredictionPostgres,
   saveOfficialResultPostgres,
   savePhasePredictionsPostgres,
@@ -32,12 +37,26 @@ import {
 } from "@/lib/services/postgres-store";
 import { getResultsProvider } from "@/lib/services/results-provider-factory";
 
+const AUTH_COOKIE_NAME = "bolao-user-id";
+
 export async function getAppSnapshot() {
   noStore();
   return isDatabaseConfigured() ? getPostgresSnapshot() : getDemoSnapshot();
 }
 
 export async function getCurrentUserId() {
+  const cookieStore = await cookies();
+  const cookieUserId = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+
+  if (cookieUserId) {
+    const snapshot = await getAppSnapshot();
+    const matchingUser = snapshot.profiles.find((profile) => profile.id === cookieUserId);
+
+    if (matchingUser) {
+      return matchingUser.id;
+    }
+  }
+
   return isDatabaseConfigured()
     ? getPostgresCurrentUser()
     : getDemoCurrentUser();
@@ -47,6 +66,16 @@ export async function getCurrentUser(snapshot?: AppSnapshot) {
   const data = snapshot ?? (await getAppSnapshot());
   const userId = await getCurrentUserId();
   return data.profiles.find((profile) => profile.id === userId) ?? data.profiles[0];
+}
+
+export async function hasAccessSession() {
+  const cookieStore = await cookies();
+
+  return Boolean(
+    cookieStore.get(AUTH_COOKIE_NAME)?.value ||
+      process.env.APP_CURRENT_USER_ID?.trim() ||
+      process.env.APP_CURRENT_USER_EMAIL?.trim(),
+  );
 }
 
 export async function getDashboardData() {
@@ -187,39 +216,35 @@ export async function savePhasePredictionsBatchAction(
     : savePhasePredictionsDemo(input);
 }
 
-export async function createInviteAction(
+export async function createSignupRequestAction(
   formData: FormData,
 ): Promise<ActionResult<{ token: string }>> {
   if (isDatabaseConfigured()) {
-    return createInvitePostgres({
+    return createSignupRequestPostgres({
+      fullName: String(formData.get("fullName") ?? ""),
       email: String(formData.get("email") ?? ""),
-      role: (String(formData.get("role") ?? "member") as "admin" | "member"),
-      expiresAt: String(formData.get("expiresAt") ?? ""),
     });
   }
 
-  return createInviteDemo({
+  return createSignupRequestDemo({
+    fullName: String(formData.get("fullName") ?? ""),
     email: String(formData.get("email") ?? ""),
-    role: (String(formData.get("role") ?? "member") as "admin" | "member"),
-    expiresAt: String(formData.get("expiresAt") ?? ""),
   });
 }
 
-export async function acceptInviteAction(
+export async function reviewSignupRequestAction(
   formData: FormData,
 ): Promise<ActionResult<{ userId: string }>> {
   if (isDatabaseConfigured()) {
-    return acceptInvitePostgres({
-      token: String(formData.get("token") ?? ""),
-      fullName: String(formData.get("fullName") ?? ""),
-      password: String(formData.get("password") ?? ""),
+    return reviewSignupRequestPostgres({
+      requestId: String(formData.get("requestId") ?? ""),
+      action: String(formData.get("action") ?? "approve") as "approve" | "reject",
     });
   }
 
-  return acceptInviteDemo({
-    token: String(formData.get("token") ?? ""),
-    fullName: String(formData.get("fullName") ?? ""),
-    password: String(formData.get("password") ?? ""),
+  return reviewSignupRequestDemo({
+    requestId: String(formData.get("requestId") ?? ""),
+    action: String(formData.get("action") ?? "approve") as "approve" | "reject",
   });
 }
 
@@ -311,8 +336,98 @@ export async function savePhaseRuleAction(
   });
 }
 
+export async function savePhaseRulesBatchAction(
+  rules: PhaseRuleInput[],
+): Promise<ActionResult<{ updatedCount: number }>> {
+  let updatedCount = 0;
+
+  for (const rule of rules) {
+    const result = isDatabaseConfigured()
+      ? await savePhaseRulePostgres(rule)
+      : savePhaseRuleDemo(rule);
+
+    if (!result.ok) {
+      return { ok: false, message: result.message, fieldErrors: result.fieldErrors };
+    }
+
+    updatedCount += 1;
+  }
+
+  return {
+    ok: true,
+    message: "Regras salvas.",
+    data: { updatedCount },
+  };
+}
+
+export async function removeSignupRequestAction(
+  formData: FormData,
+): Promise<ActionResult<{ removedId: string }>> {
+  const requestId = String(formData.get("requestId") ?? "");
+
+  return isDatabaseConfigured()
+    ? removeSignupRequestPostgres(requestId)
+    : removeSignupRequestDemo(requestId);
+}
+
+export async function removeMemberAction(
+  formData: FormData,
+): Promise<ActionResult<{ removedId: string }>> {
+  const userId = String(formData.get("userId") ?? "");
+
+  return isDatabaseConfigured()
+    ? removeMemberPostgres(userId)
+    : removeMemberDemo(userId);
+}
+
 export async function getPhaseRuleStatus(phaseId: string) {
   const snapshot = await getAppSnapshot();
   const rule = snapshot.rules.find((item) => item.phaseId === phaseId);
   return rule ? isRuleOpen(rule) : false;
+}
+
+export async function signInAction(
+  formData: FormData,
+): Promise<ActionResult<{ redirectTo: string }>> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    return { ok: false, message: "Informe um email válido." };
+  }
+
+  const snapshot = await getAppSnapshot();
+  const profile = snapshot.profiles.find(
+    (item) => item.email.trim().toLowerCase() === email,
+  );
+
+  if (!profile) {
+    const request = snapshot.signupRequests.find(
+      (item) => item.email.trim().toLowerCase() === email,
+    );
+
+    if (request) {
+      return {
+        ok: false,
+        message:
+          request.status === "pending"
+            ? "Seu cadastro ainda está aguardando aprovação."
+            : "Seu cadastro foi recusado por um admin.",
+      };
+    }
+
+    return { ok: false, message: "Nenhum acesso liberado para este email." };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(AUTH_COOKIE_NAME, profile.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return {
+    ok: true,
+    message: "Acesso liberado.",
+    data: { redirectTo: "/app" },
+  };
 }

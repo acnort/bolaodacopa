@@ -1,5 +1,6 @@
 "use client";
 
+import { useOptimistic } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListChecks, Medal, Menu, Shield } from "lucide-react";
@@ -19,9 +20,11 @@ function getLinks(isAdmin: boolean) {
 function NavigationLinks({
   currentPath,
   isAdmin,
+  onNavigate,
 }: {
   currentPath: string;
   isAdmin: boolean;
+  onNavigate?: (href: string) => void;
 }) {
   return (
     <nav className="flex flex-col gap-2">
@@ -34,6 +37,7 @@ function NavigationLinks({
           <Link
             key={href}
             href={href}
+            onClick={() => onNavigate?.(href)}
             className={cn(
               "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition",
               active
@@ -60,7 +64,9 @@ export function AppShell({
   userRole: string;
 }) {
   const pathname = usePathname();
+  const [optimisticPath, setOptimisticPath] = useOptimistic(pathname);
   const isAdmin = userRole === "admin";
+  const currentPath = optimisticPath;
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
@@ -75,7 +81,11 @@ export function AppShell({
             </h1>
           </div>
           <div className="mt-8 flex-1">
-            <NavigationLinks currentPath={pathname} isAdmin={isAdmin} />
+            <NavigationLinks
+              currentPath={currentPath}
+              isAdmin={isAdmin}
+              onNavigate={setOptimisticPath}
+            />
           </div>
         </aside>
 
@@ -91,7 +101,11 @@ export function AppShell({
               <div className="mb-4 px-1 text-base font-semibold text-[color:var(--text-strong)]">
                 {userName}
               </div>
-              <NavigationLinks currentPath={pathname} isAdmin={isAdmin} />
+              <NavigationLinks
+                currentPath={currentPath}
+                isAdmin={isAdmin}
+                onNavigate={setOptimisticPath}
+              />
             </DrawerContent>
           </Drawer>
 

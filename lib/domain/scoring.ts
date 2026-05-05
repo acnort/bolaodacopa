@@ -22,10 +22,6 @@ export function isRuleOpen(rule: PredictionRule, now = new Date()) {
   return opensAt <= now && now <= closesAt && rule.status === "active";
 }
 
-export function isInviteValid(expiresAt: string, now = new Date()) {
-  return new Date(expiresAt) > now;
-}
-
 export function scoreMatchPrediction(
   prediction: MatchPrediction,
   result: OfficialResult,

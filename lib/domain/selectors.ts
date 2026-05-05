@@ -67,8 +67,9 @@ export function getPlacementPrediction(
 export function getSnapshotSummary(snapshot: AppSnapshot) {
   return {
     members: snapshot.memberships.length,
-    openInvites: snapshot.invites.filter((invite) => invite.status === "pending")
-      .length,
+    pendingRequests: snapshot.signupRequests.filter(
+      (request) => request.status === "pending",
+    ).length,
     completedMatches: snapshot.results.length,
     totalMatches: snapshot.matches.length,
   };

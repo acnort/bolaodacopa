@@ -1,32 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SignInForm } from "@/components/forms/sign-in-form";
+import { SignupForm } from "@/components/forms/signup-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Entrar",
+  title: "Cadastro",
 };
 
-export default async function SignInPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ email?: string }>;
-}) {
-  const { email = "" } = await searchParams;
-
+export default function SignupPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 md:px-6">
       <div className="grid w-full gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="bg-[linear-gradient(150deg,#2c2c2c,#464646)] text-white">
           <CardContent className="space-y-6 p-8">
-            <Badge variant="accent">acesso aprovado</Badge>
+            <Badge variant="accent">cadastro com aprovação</Badge>
             <div className="space-y-3">
-              <h1 className="text-4xl font-semibold">Entre no bolão.</h1>
+              <h1 className="text-4xl font-semibold">Peça acesso ao bolão.</h1>
               <p className="text-sm leading-7 text-white/75">
-                Use o email liberado por um admin para abrir o app.
+                Faça seu cadastro e aguarde a liberação de um admin para entrar.
               </p>
             </div>
           </CardContent>
@@ -34,18 +34,15 @@ export default async function SignInPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Entrar na área privada</CardTitle>
+            <CardTitle>Solicitar acesso</CardTitle>
             <CardDescription>
-              Se o seu cadastro ainda estiver pendente, continue acompanhando a tela de status.
+              O acesso só fica disponível depois da aprovação.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <SignInForm defaultEmail={email} />
-            <div className="rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
-              Ainda não pediu acesso? Faça seu cadastro no link enviado pelo admin.
-            </div>
+            <SignupForm />
             <Button asChild variant="ghost" className="w-full">
-              <Link href="/">Voltar para a landing</Link>
+              <Link href="/entrar">Já fui aprovado</Link>
             </Button>
           </CardContent>
         </Card>

@@ -1,11 +1,17 @@
+import { redirect } from "next/navigation";
+
 import { AppShell } from "@/components/app-shell";
-import { getCurrentUser } from "@/lib/services/app-service";
+import { getCurrentUser, hasAccessSession } from "@/lib/services/app-service";
 
 export default async function PrivateLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  if (!(await hasAccessSession())) {
+    redirect("/entrar");
+  }
+
   const currentUser = await getCurrentUser();
 
   return (
