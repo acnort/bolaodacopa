@@ -257,8 +257,9 @@ export function removeSignupRequestDemo(
 
 export function removeMemberDemo(
   userId: string,
+  currentUserId = getDemoCurrentUser(),
 ): ActionResult<{ removedId: string }> {
-  if (userId === getDemoCurrentUser()) {
+  if (userId === currentUserId) {
     return { ok: false, message: "Voce nao pode remover sua propria conta." };
   }
 
@@ -350,7 +351,7 @@ export function reviewSignupRequestDemo(
   }
 
   request.reviewedAt = nowIso();
-  request.reviewedBy = getDemoCurrentUser();
+  request.reviewedBy = input.reviewedByUserId ?? getDemoCurrentUser();
 
   if (input.action === "reject") {
     request.status = "rejected";

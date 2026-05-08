@@ -99,6 +99,7 @@ Variáveis necessárias:
 
 - `DATABASE_URL`
 - `DATABASE_SSL`
+- `AUTH_SECRET`
 - `APP_URL`
 
 Variáveis opcionais de desenvolvimento:
@@ -106,7 +107,7 @@ Variáveis opcionais de desenvolvimento:
 - `APP_CURRENT_USER_ID`
 - `APP_CURRENT_USER_EMAIL`
 
-Observação: o login atual é propositalmente simples para o MVP privado. Ele valida se o email já está aprovado e grava o id do perfil no cookie HTTP-only `bolao-user-id`.
+Observação: o login atual é propositalmente simples para o MVP privado. Ele valida se o email já está aprovado e grava uma sessão assinada no cookie HTTP-only `bolao-user-id`.
 
 ## API-Football
 

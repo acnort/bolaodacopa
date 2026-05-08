@@ -1202,12 +1202,13 @@ export async function removeSignupRequestPostgres(
 
 export async function removeMemberPostgres(
   userId: string,
+  currentUserId?: string,
 ): Promise<ActionResult<{ removedId: string }>> {
   await ensureDatabaseSeeded();
 
-  const currentUserId = await getPostgresCurrentUser();
+  const actorUserId = currentUserId ?? (await getPostgresCurrentUser());
 
-  if (userId === currentUserId) {
+  if (userId === actorUserId) {
     return { ok: false, message: "Voce nao pode remover sua propria conta." };
   }
 
@@ -1341,7 +1342,7 @@ export async function reviewSignupRequestPostgres(
     }
 
     const timestamp = nowIso();
-    const currentUserId = await getPostgresCurrentUser();
+    const currentUserId = input.reviewedByUserId ?? (await getPostgresCurrentUser());
 
     if (input.action === "reject") {
       await client.query(

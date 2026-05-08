@@ -4,7 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
 import { buildLeaderboard, buildScoreEntries, isRuleOpen } from "@/lib/domain/scoring";
-import type { ActionResult, AppSnapshot, PhaseBatchPredictionInput, PhaseRuleInput } from "@/lib/domain/types";
+import type { ActionResult, AppSnapshot, PhaseBatchPredictionInput, PhaseRuleInput, Profile } from "@/lib/domain/types";
 import { isDatabaseConfigured } from "@/lib/services/database/shared";
 import {
   createSignupRequestDemo,
@@ -36,51 +36,116 @@ import {
   savePlacementResultPostgres,
 } from "@/lib/services/postgres-store";
 import { getResultsProvider } from "@/lib/services/results-provider-factory";
+import {
+  createSessionToken,
+  SESSION_TTL_SECONDS,
+  verifySessionToken,
+} from "@/lib/services/session-token";
 
 const AUTH_COOKIE_NAME = "bolao-user-id";
 
-export async function getAppSnapshot() {
-  noStore();
-  return isDatabaseConfigured() ? getPostgresSnapshot() : getDemoSnapshot();
+function isDevelopmentAuthFallbackEnabled() {
+  return process.env.NODE_ENV !== "production";
 }
 
-export async function getCurrentUserId() {
+function getSessionSecret() {
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (secret) return secret;
+
+  return isDevelopmentAuthFallbackEnabled()
+    ? "bolaov2-local-development-secret"
+    : undefined;
+}
+
+async function getSessionProfile(snapshot?: AppSnapshot) {
+  const secret = getSessionSecret();
+  if (!secret) return undefined;
+
   const cookieStore = await cookies();
-  const cookieUserId = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const session = verifySessionToken(
+    cookieStore.get(AUTH_COOKIE_NAME)?.value,
+    secret,
+  );
 
-  if (cookieUserId) {
-    const snapshot = await getAppSnapshot();
-    const matchingUser = snapshot.profiles.find((profile) => profile.id === cookieUserId);
+  if (!session) return undefined;
 
-    if (matchingUser) {
-      return matchingUser.id;
-    }
-  }
+  const data = snapshot ?? (await getAppSnapshot());
+  return data.profiles.find((profile) => profile.id === session.userId);
+}
+
+async function getDevelopmentCurrentUserId() {
+  if (!isDevelopmentAuthFallbackEnabled()) return undefined;
 
   return isDatabaseConfigured()
     ? getPostgresCurrentUser()
     : getDemoCurrentUser();
 }
 
+async function getActionProfile(snapshot?: AppSnapshot): Promise<Profile | undefined> {
+  const data = snapshot ?? (await getAppSnapshot());
+  const sessionProfile = await getSessionProfile(data);
+  if (sessionProfile) return sessionProfile;
+
+  const developmentUserId = await getDevelopmentCurrentUserId();
+  if (!developmentUserId) return undefined;
+
+  return data.profiles.find((profile) => profile.id === developmentUserId);
+}
+
+async function requireActionProfile(snapshot?: AppSnapshot) {
+  const profile = await getActionProfile(snapshot);
+  if (profile) return profile;
+
+  return undefined;
+}
+
+async function requireAdminProfile(snapshot?: AppSnapshot) {
+  const profile = await requireActionProfile(snapshot);
+  return profile?.role === "admin" ? profile : undefined;
+}
+
+function unauthorizedResult<T = unknown>(): ActionResult<T> {
+  return {
+    ok: false,
+    message: "Entre com um email aprovado para continuar.",
+  };
+}
+
+function forbiddenResult<T = unknown>(): ActionResult<T> {
+  return {
+    ok: false,
+    message: "Apenas administradores podem executar esta ação.",
+  };
+}
+
+export async function getAppSnapshot() {
+  noStore();
+  return isDatabaseConfigured() ? getPostgresSnapshot() : getDemoSnapshot();
+}
+
+export async function getCurrentUserId(snapshot?: AppSnapshot) {
+  const sessionProfile = await getSessionProfile(snapshot);
+  if (sessionProfile) return sessionProfile.id;
+
+  return (await getDevelopmentCurrentUserId()) ?? "";
+}
+
 export async function getCurrentUser(snapshot?: AppSnapshot) {
   const data = snapshot ?? (await getAppSnapshot());
-  const userId = await getCurrentUserId();
+  const userId = await getCurrentUserId(data);
   return data.profiles.find((profile) => profile.id === userId) ?? data.profiles[0];
 }
 
 export async function hasAccessSession() {
-  const cookieStore = await cookies();
+  const sessionProfile = await getSessionProfile();
+  if (sessionProfile) return true;
 
-  return Boolean(
-    cookieStore.get(AUTH_COOKIE_NAME)?.value ||
-      process.env.APP_CURRENT_USER_ID?.trim() ||
-      process.env.APP_CURRENT_USER_EMAIL?.trim(),
-  );
+  return Boolean(await getDevelopmentCurrentUserId());
 }
 
 export async function getDashboardData() {
   const snapshot = await getAppSnapshot();
-  const currentUserId = await getCurrentUserId();
+  const currentUserId = await getCurrentUserId(snapshot);
   const resultsProvider = getResultsProvider();
   const leaderboard = buildLeaderboard(snapshot);
   const currentUser = snapshot.profiles.find((profile) => profile.id === currentUserId);
@@ -109,6 +174,12 @@ export async function saveMatchPredictionAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {
   const snapshot = await getAppSnapshot();
+  const currentUser = await requireActionProfile(snapshot);
+
+  if (!currentUser) {
+    return unauthorizedResult();
+  }
+
   const matchId = String(formData.get("matchId") ?? "");
   const match = snapshot.matches.find((item) => item.id === matchId);
   const rule = match
@@ -121,7 +192,7 @@ export async function saveMatchPredictionAction(
 
   if (isDatabaseConfigured()) {
     return saveMatchPredictionPostgres({
-      userId: String(formData.get("userId") ?? ""),
+      userId: currentUser.id,
       matchId,
       homeScore: Number(formData.get("homeScore") ?? 0),
       awayScore: Number(formData.get("awayScore") ?? 0),
@@ -129,7 +200,7 @@ export async function saveMatchPredictionAction(
   }
 
   return saveMatchPredictionDemo({
-    userId: String(formData.get("userId") ?? ""),
+    userId: currentUser.id,
     matchId,
     homeScore: Number(formData.get("homeScore") ?? 0),
     awayScore: Number(formData.get("awayScore") ?? 0),
@@ -140,6 +211,12 @@ export async function savePlacementPredictionAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {
   const snapshot = await getAppSnapshot();
+  const currentUser = await requireActionProfile(snapshot);
+
+  if (!currentUser) {
+    return unauthorizedResult();
+  }
+
   const competitionId = String(formData.get("competitionId") ?? "");
   const rule = snapshot.rules.find((item) => item.enablePlacementPredictions);
 
@@ -154,7 +231,7 @@ export async function savePlacementPredictionAction(
 
   if (isDatabaseConfigured()) {
     return savePlacementPredictionPostgres({
-      userId: String(formData.get("userId") ?? ""),
+      userId: currentUser.id,
       competitionId,
       championTeamId: String(formData.get("championTeamId") ?? ""),
       runnerUpTeamId: String(formData.get("runnerUpTeamId") ?? ""),
@@ -163,7 +240,7 @@ export async function savePlacementPredictionAction(
   }
 
   return savePlacementPredictionDemo({
-    userId: String(formData.get("userId") ?? ""),
+    userId: currentUser.id,
     competitionId,
     championTeamId: String(formData.get("championTeamId") ?? ""),
     runnerUpTeamId: String(formData.get("runnerUpTeamId") ?? ""),
@@ -175,6 +252,12 @@ export async function savePhasePredictionsBatchAction(
   input: PhaseBatchPredictionInput,
 ): Promise<ActionResult<{ updatedCount: number }>> {
   const snapshot = await getAppSnapshot();
+  const currentUser = await requireActionProfile(snapshot);
+
+  if (!currentUser) {
+    return unauthorizedResult();
+  }
+
   const rule = snapshot.rules.find((item) => item.phaseId === input.phaseId);
 
   if (!rule || !isRuleOpen(rule)) {
@@ -212,8 +295,8 @@ export async function savePhasePredictionsBatchAction(
   }
 
   return isDatabaseConfigured()
-    ? savePhasePredictionsPostgres(input)
-    : savePhasePredictionsDemo(input);
+    ? savePhasePredictionsPostgres({ ...input, userId: currentUser.id })
+    : savePhasePredictionsDemo({ ...input, userId: currentUser.id });
 }
 
 export async function createSignupRequestAction(
@@ -235,22 +318,30 @@ export async function createSignupRequestAction(
 export async function reviewSignupRequestAction(
   formData: FormData,
 ): Promise<ActionResult<{ userId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   if (isDatabaseConfigured()) {
     return reviewSignupRequestPostgres({
       requestId: String(formData.get("requestId") ?? ""),
       action: String(formData.get("action") ?? "approve") as "approve" | "reject",
+      reviewedByUserId: admin.id,
     });
   }
 
   return reviewSignupRequestDemo({
     requestId: String(formData.get("requestId") ?? ""),
     action: String(formData.get("action") ?? "approve") as "approve" | "reject",
+    reviewedByUserId: admin.id,
   });
 }
 
 export async function saveOfficialResultAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   if (isDatabaseConfigured()) {
     return saveOfficialResultPostgres({
       matchId: String(formData.get("matchId") ?? ""),
@@ -277,6 +368,9 @@ export async function saveOfficialResultAction(
 export async function savePlacementResultAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   if (isDatabaseConfigured()) {
     return savePlacementResultPostgres({
       competitionId: String(formData.get("competitionId") ?? ""),
@@ -297,6 +391,9 @@ export async function savePlacementResultAction(
 export async function savePhaseRuleAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   if (isDatabaseConfigured()) {
     return savePhaseRulePostgres({
       phaseId: String(formData.get("phaseId") ?? ""),
@@ -339,6 +436,9 @@ export async function savePhaseRuleAction(
 export async function savePhaseRulesBatchAction(
   rules: PhaseRuleInput[],
 ): Promise<ActionResult<{ updatedCount: number }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   let updatedCount = 0;
 
   for (const rule of rules) {
@@ -363,6 +463,9 @@ export async function savePhaseRulesBatchAction(
 export async function removeSignupRequestAction(
   formData: FormData,
 ): Promise<ActionResult<{ removedId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   const requestId = String(formData.get("requestId") ?? "");
 
   return isDatabaseConfigured()
@@ -373,11 +476,14 @@ export async function removeSignupRequestAction(
 export async function removeMemberAction(
   formData: FormData,
 ): Promise<ActionResult<{ removedId: string }>> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
   const userId = String(formData.get("userId") ?? "");
 
   return isDatabaseConfigured()
-    ? removeMemberPostgres(userId)
-    : removeMemberDemo(userId);
+    ? removeMemberPostgres(userId, admin.id)
+    : removeMemberDemo(userId, admin.id);
 }
 
 export async function getPhaseRuleStatus(phaseId: string) {
@@ -419,15 +525,36 @@ export async function signInAction(
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, profile.id, {
+  const secret = getSessionSecret();
+
+  if (!secret) {
+    return { ok: false, message: "AUTH_SECRET não configurado." };
+  }
+
+  const { token, expiresAt } = createSessionToken(profile.id, secret);
+  cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
+    expires: expiresAt,
+    maxAge: SESSION_TTL_SECONDS,
   });
 
   return {
     ok: true,
     message: "Acesso liberado.",
     data: { redirectTo: "/app" },
+  };
+}
+
+export async function signOutAction(): Promise<ActionResult<{ redirectTo: string }>> {
+  const cookieStore = await cookies();
+  cookieStore.delete(AUTH_COOKIE_NAME);
+
+  return {
+    ok: true,
+    message: "Sessão encerrada.",
+    data: { redirectTo: "/entrar" },
   };
 }

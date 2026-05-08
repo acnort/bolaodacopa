@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { authSchema, matchPredictionSchema, memberRemovalSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
 import type { ActionResult } from "@/lib/domain/types";
@@ -16,6 +17,7 @@ import {
   savePlacementPredictionAction as savePlacementPredictionInternal,
   savePlacementResultAction as savePlacementResultInternal,
   signInAction as signInInternal,
+  signOutAction as signOutInternal,
   createSignupRequestAction as createSignupRequestInternal,
 } from "@/lib/services/app-service";
 
@@ -303,6 +305,12 @@ export async function signIn(
   } catch (error) {
     return toErrorResult(error);
   }
+}
+
+export async function signOut() {
+  await signOutInternal();
+  revalidatePath("/app");
+  redirect("/entrar");
 }
 
 export async function saveOfficialResult(

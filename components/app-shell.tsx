@@ -3,8 +3,9 @@
 import { useOptimistic } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListChecks, Medal, Menu, Shield } from "lucide-react";
+import { ListChecks, LogOut, Medal, Menu, Shield } from "lucide-react";
 
+import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,17 @@ function NavigationLinks({
   );
 }
 
+function SignOutForm() {
+  return (
+    <form action={signOut}>
+      <Button variant="ghost" className="w-full justify-start">
+        <LogOut className="h-4 w-4" />
+        Sair
+      </Button>
+    </form>
+  );
+}
+
 export function AppShell({
   children,
   userName,
@@ -87,6 +99,7 @@ export function AppShell({
               onNavigate={setOptimisticPath}
             />
           </div>
+          <SignOutForm />
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-6">
@@ -106,6 +119,9 @@ export function AppShell({
                 isAdmin={isAdmin}
                 onNavigate={setOptimisticPath}
               />
+              <div className="mt-3">
+                <SignOutForm />
+              </div>
             </DrawerContent>
           </Drawer>
 

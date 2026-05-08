@@ -228,6 +228,7 @@ export interface SignupRequestInput {
 export interface SignupRequestReviewInput {
   requestId: string;
   action: "approve" | "reject";
+  reviewedByUserId?: string;
 }
 
 export interface AuthInput {
