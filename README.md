@@ -127,11 +127,13 @@ Fontes:
 Variáveis adicionais:
 
 - `API_FOOTBALL_KEY`
-- `API_FOOTBALL_BASE_URL`
-- `API_FOOTBALL_LEAGUE_ID`
-- `API_FOOTBALL_SEASON`
-- `API_FOOTBALL_TIMEZONE`
+- `API_FOOTBALL_BASE_URL=https://v3.football.api-sports.io`
+- `API_FOOTBALL_LEAGUE_ID=1`
+- `API_FOOTBALL_SEASON=2026`
+- `API_FOOTBALL_TIMEZONE=America/Sao_Paulo`
 - `INTERNAL_CRON_SECRET`
+
+Observação validada localmente em 8 de maio de 2026: a key responde, mas o plano free retornou erro de plano para `league=1` e `season=2026`. Portanto, para a Copa 2026, a integração automática depende de um plano/API com acesso a essa temporada; enquanto isso, o admin manual continua sendo o caminho de produção.
 
 Endpoint interno de sync:
 
