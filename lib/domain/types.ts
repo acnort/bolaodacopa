@@ -24,6 +24,14 @@ export interface SignupRequest {
   approvedUserId?: string;
 }
 
+export interface AccessInvite {
+  id: string;
+  token: string;
+  createdAt: string;
+  createdBy?: string;
+  revokedAt?: string;
+}
+
 export interface Membership {
   id: string;
   userId: string;
@@ -78,6 +86,7 @@ export interface PredictionRule {
 
 export interface Match {
   id: string;
+  externalMatchId?: string;
   phaseId: string;
   roundLabel: string;
   stageGroup?: string;
@@ -171,6 +180,7 @@ export interface AppSnapshot {
   results: OfficialResult[];
   placementResult: PlacementResult;
   profiles: Profile[];
+  accessInvites: AccessInvite[];
   signupRequests: SignupRequest[];
   memberships: Membership[];
   matchPredictions: MatchPrediction[];
@@ -199,6 +209,15 @@ export interface OfficialResultInput {
   status: MatchStatus;
 }
 
+export interface SyncedMatchInput {
+  matchId: string;
+  externalMatchId: string;
+  kickoffAt: string;
+  status: MatchStatus;
+  homeScore?: number;
+  awayScore?: number;
+}
+
 export interface PlacementResultInput {
   competitionId: string;
   championTeamId: string;
@@ -223,6 +242,13 @@ export interface PhaseRuleInput {
 export interface SignupRequestInput {
   fullName: string;
   email: string;
+}
+
+export interface AccessSetupInput {
+  token: string;
+  fullName: string;
+  email: string;
+  passwordHash: string;
 }
 
 export interface SignupRequestReviewInput {

@@ -2,6 +2,14 @@ import { sampleSnapshot } from "@/lib/data/sample-data";
 import type { ResultsProvider } from "@/lib/services/results-provider";
 
 export const mockResultsProvider: ResultsProvider = {
+  async getMatchData() {
+    return {
+      matches: structuredClone(sampleSnapshot.matches),
+      results: structuredClone(sampleSnapshot.results),
+      externalCalls: 0,
+    };
+  },
+
   async listMatches() {
     return structuredClone(sampleSnapshot.matches);
   },

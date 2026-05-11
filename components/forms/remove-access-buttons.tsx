@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { Check, Trash2, UserMinus, X } from "lucide-react";
+import { Check, LinkIcon, Trash2, UserMinus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  createAccessInvite,
   removeMember,
   removeSignupRequest,
   reviewSignupRequest,
@@ -122,6 +123,20 @@ export function RemoveMemberButton({
         aria-label="Remover membro"
       >
         <UserMinus className="h-4 w-4" />
+      </SubmitButton>
+    </form>
+  );
+}
+
+export function CreateAccessInviteButton() {
+  const [state, formAction] = useActionState(createAccessInvite, initialState);
+  useToastState(state);
+
+  return (
+    <form action={formAction}>
+      <SubmitButton pendingLabel="Gerando...">
+        <LinkIcon className="h-4 w-4" />
+        Gerar novo link
       </SubmitButton>
     </form>
   );

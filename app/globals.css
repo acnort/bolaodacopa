@@ -41,12 +41,38 @@ html {
 }
 
 body {
+  position: relative;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-manrope), sans-serif;
   background-image:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.5), transparent 26%),
     radial-gradient(circle at top right, rgba(0, 0, 0, 0.03), transparent 22%);
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  top: 50%;
+  z-index: -1;
+  width: clamp(280px, 28vw, 520px);
+  aspect-ratio: 1;
+  background-image: url("/logo.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+body::before {
+  left: max(0px, -8vw);
+}
+
+body::after {
+  right: max(0px, -8vw);
 }
 
 h1,

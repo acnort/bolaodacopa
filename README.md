@@ -8,7 +8,7 @@ Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 - palpites de jogos e pódio final
 - ranking geral com desempate por acerto exato e depois resultado correto
 - painel admin para solicitações de cadastro, membros, regras por fase e resultados oficiais
-- fonte manual de resultados no v1, com `ResultsProvider` preparado para `API-Football`
+- fonte manual de resultados no v1, com `ResultsProvider` integrado ao `football-data.org`
 - persistência em `Postgres` puro, com fallback demo em memória
 
 ## Stack
@@ -109,46 +109,45 @@ Variáveis opcionais de desenvolvimento:
 
 Observação: o login atual é propositalmente simples para o MVP privado. Ele valida se o email já está aprovado e grava uma sessão assinada no cookie HTTP-only `bolao-user-id`.
 
-## API-Football
+## football-data.org
 
-Validei na documentação oficial em 21 de abril de 2026 que o plano grátis continua com:
+A integração automática de jogos/resultados usa `football-data.org` v4 para a Copa do Mundo 2026.
 
-- `100 requests/day`
+Limite informado para o plano free:
+
 - `10 requests/minute`
-- endpoint de `fixtures` para data/league/season
-- endpoint de `fixtures?live=LEAGUE_ID` para janela de jogos ao vivo
-
-Fontes:
-
-- https://www.api-football.com/pricing
-- https://www.api-football.com/news/post/how-ratelimit-works
-- https://www.api-football.com/news/post/how-to-get-started-with-api-football-the-complete-beginners-guide
 
 Variáveis adicionais:
 
-- `API_FOOTBALL_KEY`
-- `API_FOOTBALL_BASE_URL=https://v3.football.api-sports.io`
-- `API_FOOTBALL_LEAGUE_ID=1`
-- `API_FOOTBALL_SEASON=2026`
-- `API_FOOTBALL_TIMEZONE=America/Sao_Paulo`
+- `FOOTBALL_DATA_API_KEY` ou `API_FOOTBALL_KEY` como fallback legado
+- `FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4`
+- `FOOTBALL_DATA_COMPETITION_ID=2000`
 - `INTERNAL_CRON_SECRET`
 
-Observação validada localmente em 8 de maio de 2026: a key responde, mas o plano free retornou erro de plano para `league=1` e `season=2026`. Portanto, para a Copa 2026, a integração automática depende de um plano/API com acesso a essa temporada; enquanto isso, o admin manual continua sendo o caminho de produção.
+O provider chama:
+
+- `GET /competitions/2000/matches`
+- header `X-Auth-Token: $FOOTBALL_DATA_API_KEY`
+
+O dashboard não chama a API externa no render. A sincronização acontece apenas via rota interna/cron para preservar a quota.
 
 Endpoint interno de sync:
 
-- `GET /api/providers/api-football/sync?mode=daily&date=YYYY-MM-DD`
-- `GET /api/providers/api-football/sync?mode=live-window`
+- `GET /api/providers/football-data/sync?mode=adaptive`
+- `GET /api/providers/football-data/sync?mode=daily&date=YYYY-MM-DD`
+- `GET /api/providers/football-data/sync?mode=live-window`
 
 Envie `Authorization: Bearer $INTERNAL_CRON_SECRET` ou `x-cron-secret`.
 
-Agenda recomendada para caber no free tier da Copa:
+Agenda recomendada para respeitar `10 requests/minute`:
 
-- `00:05` todos os dias: `mode=daily`
-- `30 min` antes do primeiro jogo do dia: `mode=daily`
-- durante janela ativa de jogos: `mode=live-window` a cada `10 minutos`
+- chamar `mode=adaptive` a cada minuto pelo cron
+- o app só faz fetch externo quando a cadência permitir
+- janela live: no máximo 1 sync por minuto
+- dia de jogo fora da janela live: no máximo 1 sync a cada 5 minutos
+- fora de dia de jogo: no máximo 1 sync a cada 6 horas
 
-Essa estratégia é suficiente para uma competição única como a Copa e preserva margem dentro do limite diário. A documentação oficial também indica que fixtures futuros podem ser consultados uma vez por dia, enquanto partidas ao vivo exigem polling mais frequente.
+Cada sync do provider `football-data.org` usa 1 chamada externa para `/competitions/2000/matches`, que já traz status, próximos jogos e placares. A aplicação ainda mantém uma proteção interna de orçamento para não passar de 8 chamadas/minuto mesmo se houver chamadas manuais ou crons duplicados.
 
 ## Scripts
 
@@ -160,9 +159,47 @@ npm run test
 npm run build
 ```
 
+## Deploy na VPS
+
+O projeto tem deploy via Docker e GitHub Actions, seguindo o padrão do `adminlab`.
+
+Arquivos principais:
+
+- [Dockerfile](/c:/Documentos/projects/bolaov2/Dockerfile)
+- [docker-compose.prod.yml](/c:/Documentos/projects/bolaov2/docker-compose.prod.yml)
+- [.github/workflows/deploy.yml](/c:/Documentos/projects/bolaov2/.github/workflows/deploy.yml)
+- [.env.production.example](/c:/Documentos/projects/bolaov2/.env.production.example)
+
+No servidor, crie:
+
+```bash
+/usr/documents/projects/bolaov2/.env
+```
+
+Baseie no `.env.production.example`. O compose sobe:
+
+- `bolaov2`: app Next.js em `APP_PORT`, default `3102`
+- `bolaov2-db`: Postgres 16 com volume `bolaov2-postgres`
+- `bolaov2-results-sync`: chamada por minuto para `mode=adaptive`
+
+Secrets esperados no GitHub:
+
+- `HOST`
+- `USERNAME`
+- `PORT`
+- `SSHKEY`
+
+O workflow roda `typecheck`, `lint`, `test`, `build` e depois executa no servidor:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build --remove-orphans
+```
+
+As migrations SQL rodam automaticamente no startup do container da aplicação via `npm run db:migrate`.
+
 ## Observações
 
-- O contrato `ResultsProvider` suporta provider mock e `API-Football`.
+- O contrato `ResultsProvider` suporta provider mock, `football-data.org` e fallback legado de `API-Football`.
 - Os grupos oficiais de 2026 estão espelhados no sample local e em seed SQL para o banco.
 - Sem `DATABASE_URL`, a aplicação usa store demo em memória; com `DATABASE_URL`, usa Postgres.
 - O fluxo antigo de convites foi substituído por solicitações de cadastro aprovadas no admin.

@@ -4,10 +4,22 @@ import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
 import { buildLeaderboard, buildScoreEntries, isRuleOpen } from "@/lib/domain/scoring";
-import type { ActionResult, AppSnapshot, PhaseBatchPredictionInput, PhaseRuleInput, Profile } from "@/lib/domain/types";
+import type {
+  ActionResult,
+  AppSnapshot,
+  Match,
+  PhaseBatchPredictionInput,
+  PhaseRuleInput,
+  Profile,
+  SyncedMatchInput,
+} from "@/lib/domain/types";
 import { isDatabaseConfigured } from "@/lib/services/database/shared";
 import {
+  activateSignupRequestDemo,
+  createAccessInviteDemo,
   createSignupRequestDemo,
+  getProviderSyncStateDemo,
+  getPasswordHashByEmailDemo,
   getDemoCurrentUser,
   getDemoSnapshot,
   removeMemberDemo,
@@ -19,10 +31,15 @@ import {
   savePhaseRuleDemo,
   savePlacementPredictionDemo,
   savePlacementResultDemo,
+  saveProviderSyncStateDemo,
+  syncMatchesDemo,
 } from "@/lib/services/demo-store";
-import { isApiFootballConfigured } from "@/lib/services/api-football-config";
 import {
+  activateAccessInvitePostgres,
+  createAccessInvitePostgres,
   createSignupRequestPostgres,
+  getProviderSyncStatePostgres,
+  getPasswordHashByEmailPostgres,
   getPostgresCurrentUser,
   getPostgresSnapshot,
   removeMemberPostgres,
@@ -34,8 +51,18 @@ import {
   savePhaseRulePostgres,
   savePlacementPredictionPostgres,
   savePlacementResultPostgres,
+  saveProviderSyncStatePostgres,
+  syncMatchesPostgres,
 } from "@/lib/services/postgres-store";
-import { getResultsProvider } from "@/lib/services/results-provider-factory";
+import type {
+  ResultsSyncOptions,
+  ResultsSyncSummary,
+} from "@/lib/services/results-provider";
+import {
+  getResultsProvider,
+  getResultsProviderName,
+} from "@/lib/services/results-provider-factory";
+import { hashPassword, verifyPassword } from "@/lib/services/passwords";
 import {
   createSessionToken,
   SESSION_TTL_SECONDS,
@@ -43,6 +70,13 @@ import {
 } from "@/lib/services/session-token";
 
 const AUTH_COOKIE_NAME = "bolao-user-id";
+const PROVIDER_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const PROVIDER_RATE_LIMIT_MAX_CALLS = 8;
+const LIVE_SYNC_INTERVAL_SECONDS = 60;
+const MATCHDAY_SYNC_INTERVAL_SECONDS = 5 * 60;
+const BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60;
+
+let providerCallTimestamps: number[] = [];
 
 function isDevelopmentAuthFallbackEnabled() {
   return process.env.NODE_ENV !== "production";
@@ -146,7 +180,7 @@ export async function hasAccessSession() {
 export async function getDashboardData() {
   const snapshot = await getAppSnapshot();
   const currentUserId = await getCurrentUserId(snapshot);
-  const resultsProvider = getResultsProvider();
+  const providerName = getResultsProviderName();
   const leaderboard = buildLeaderboard(snapshot);
   const currentUser = snapshot.profiles.find((profile) => profile.id === currentUserId);
   const upcomingMatches = snapshot.matches
@@ -164,9 +198,297 @@ export async function getDashboardData() {
     currentUser,
     currentStanding: leaderboard.find((entry) => entry.userId === currentUserId),
     upcomingMatches,
-    providerStatus: await resultsProvider.syncCompetitionData(),
+    providerStatus: {
+      syncedAt: new Date().toISOString(),
+      matches: snapshot.matches.length,
+      results: snapshot.results.length,
+      provider: providerName,
+      mode: "daily" as const,
+      fallbackAdminManual: true,
+    },
     isDemoMode: !isDatabaseConfigured(),
-    isResultsApiConfigured: isApiFootballConfigured(),
+    isResultsApiConfigured: providerName !== "mock",
+  };
+}
+
+function findMatchingInternalMatch(
+  externalMatch: Match,
+  internalMatches: Match[],
+  usedMatchIds: Set<string>,
+) {
+  const externalMatchId = externalMatch.externalMatchId ?? externalMatch.id;
+  const byExternalId = internalMatches.find(
+    (match) =>
+      !usedMatchIds.has(match.id) &&
+      (match.externalMatchId === externalMatchId || match.id === externalMatchId),
+  );
+
+  if (byExternalId) return byExternalId;
+
+  if (!externalMatch.homeTeamId || !externalMatch.awayTeamId) {
+    return undefined;
+  }
+
+  return internalMatches.find(
+    (match) =>
+      !usedMatchIds.has(match.id) &&
+      match.phaseId === externalMatch.phaseId &&
+      match.homeTeamId === externalMatch.homeTeamId &&
+    match.awayTeamId === externalMatch.awayTeamId,
+  );
+}
+
+function getProviderSyncStateKey(providerName: string) {
+  return `results:${providerName}`;
+}
+
+async function getProviderSyncState(key: string) {
+  return isDatabaseConfigured()
+    ? getProviderSyncStatePostgres(key)
+    : getProviderSyncStateDemo(key);
+}
+
+async function saveProviderSyncState(key: string, syncedAt: string) {
+  if (isDatabaseConfigured()) {
+    await saveProviderSyncStatePostgres(key, syncedAt);
+    return;
+  }
+
+  saveProviderSyncStateDemo(key, syncedAt);
+}
+
+function isSameLocalDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function getAdaptiveSyncCadence(snapshot: AppSnapshot, now = new Date()) {
+  const liveWindowStartMs = now.getTime() + 15 * 60 * 1000;
+  const liveWindowEndMs = now.getTime() - 3 * 60 * 60 * 1000;
+  const hasLiveWindowMatch = snapshot.matches.some((match) => {
+    if (match.status === "in_progress") return true;
+
+    const kickoffTime = new Date(match.kickoffAt).getTime();
+    return kickoffTime <= liveWindowStartMs && kickoffTime >= liveWindowEndMs;
+  });
+
+  if (hasLiveWindowMatch) {
+    return {
+      mode: "live-window" as const,
+      intervalSeconds: LIVE_SYNC_INTERVAL_SECONDS,
+    };
+  }
+
+  const hasMatchToday = snapshot.matches.some((match) =>
+    isSameLocalDay(new Date(match.kickoffAt), now),
+  );
+
+  if (hasMatchToday) {
+    return {
+      mode: "daily" as const,
+      intervalSeconds: MATCHDAY_SYNC_INTERVAL_SECONDS,
+    };
+  }
+
+  return {
+    mode: "daily" as const,
+    intervalSeconds: BACKGROUND_SYNC_INTERVAL_SECONDS,
+  };
+}
+
+function getNextRecommendedSyncAt(from: Date, intervalSeconds: number) {
+  return new Date(from.getTime() + intervalSeconds * 1000).toISOString();
+}
+
+function canUseProviderCallBudget(externalCalls: number) {
+  const now = Date.now();
+  providerCallTimestamps = providerCallTimestamps.filter(
+    (timestamp) => now - timestamp < PROVIDER_RATE_LIMIT_WINDOW_MS,
+  );
+
+  return providerCallTimestamps.length + externalCalls <= PROVIDER_RATE_LIMIT_MAX_CALLS;
+}
+
+function recordProviderCalls(externalCalls: number) {
+  const now = Date.now();
+  providerCallTimestamps.push(
+    ...Array.from({ length: externalCalls }, () => now),
+  );
+}
+
+async function fetchProviderMatchData(
+  provider: ReturnType<typeof getResultsProvider>,
+  options?: ResultsSyncOptions,
+) {
+  if (provider.getMatchData) {
+    return provider.getMatchData(options);
+  }
+
+  const [matches, results] = await Promise.all([
+    provider.listMatches(options),
+    provider.getResults(options),
+  ]);
+
+  return { matches, results, externalCalls: 2 };
+}
+
+export async function syncResultsProviderAction(
+  options?: ResultsSyncOptions,
+): Promise<ActionResult<ResultsSyncSummary>> {
+  const providerName = getResultsProviderName();
+  if (providerName === "mock") {
+    return {
+      ok: false,
+      message: "API de resultados não configurada.",
+    };
+  }
+
+  const requestedMode = options?.mode ?? "daily";
+  const snapshot = await getAppSnapshot();
+  const now = new Date();
+  const cadence =
+    requestedMode === "adaptive"
+      ? getAdaptiveSyncCadence(snapshot, now)
+      : {
+          mode: requestedMode,
+          intervalSeconds:
+            requestedMode === "live-window"
+              ? LIVE_SYNC_INTERVAL_SECONDS
+              : BACKGROUND_SYNC_INTERVAL_SECONDS,
+        };
+  const syncStateKey = getProviderSyncStateKey(providerName);
+  const lastSyncedAt = await getProviderSyncState(syncStateKey);
+
+  if (requestedMode === "adaptive" && lastSyncedAt && !options?.force) {
+    const elapsedMs = now.getTime() - new Date(lastSyncedAt).getTime();
+    const minIntervalMs = cadence.intervalSeconds * 1000;
+
+    if (elapsedMs >= 0 && elapsedMs < minIntervalMs) {
+      return {
+        ok: true,
+        message: "Sync ignorado pela cadência adaptativa.",
+        data: {
+          syncedAt: lastSyncedAt,
+          matches: snapshot.matches.length,
+          results: snapshot.results.length,
+          provider: providerName,
+          mode: requestedMode,
+          date: options?.date,
+          fallbackAdminManual: true,
+          externalCalls: 0,
+          skipped: true,
+          skipReason: "adaptive-cadence",
+          recommendedIntervalSeconds: cadence.intervalSeconds,
+          nextRecommendedSyncAt: getNextRecommendedSyncAt(
+            new Date(lastSyncedAt),
+            cadence.intervalSeconds,
+          ),
+        },
+      };
+    }
+  }
+
+  if (!canUseProviderCallBudget(1)) {
+    return {
+      ok: true,
+      message: "Sync ignorado para preservar o limite da API.",
+      data: {
+        syncedAt: lastSyncedAt ?? now.toISOString(),
+        matches: snapshot.matches.length,
+        results: snapshot.results.length,
+        provider: providerName,
+        mode: requestedMode,
+        date: options?.date,
+        fallbackAdminManual: true,
+        externalCalls: 0,
+        skipped: true,
+        skipReason: "rate-limit-budget",
+        recommendedIntervalSeconds: cadence.intervalSeconds,
+        nextRecommendedSyncAt: getNextRecommendedSyncAt(
+          lastSyncedAt ? new Date(lastSyncedAt) : now,
+          cadence.intervalSeconds,
+        ),
+      },
+    };
+  }
+
+  const provider = getResultsProvider();
+  const providerData = await fetchProviderMatchData(provider, {
+    ...options,
+    mode: cadence.mode,
+  });
+  recordProviderCalls(providerData.externalCalls);
+  const providerMatches = providerData.matches;
+  const providerResults = providerData.results;
+  const resultsByExternalId = new Map(
+    providerResults.map((result) => [result.matchId, result]),
+  );
+  const usedMatchIds = new Set<string>();
+  const syncedInputs: SyncedMatchInput[] = [];
+  let unmatchedMatches = 0;
+
+  for (const externalMatch of providerMatches) {
+    const internalMatch = findMatchingInternalMatch(
+      externalMatch,
+      snapshot.matches,
+      usedMatchIds,
+    );
+    const externalMatchId = externalMatch.externalMatchId ?? externalMatch.id;
+
+    if (!internalMatch) {
+      unmatchedMatches += 1;
+      continue;
+    }
+
+    usedMatchIds.add(internalMatch.id);
+    const result = resultsByExternalId.get(externalMatchId);
+
+    syncedInputs.push({
+      matchId: internalMatch.id,
+      externalMatchId,
+      kickoffAt: externalMatch.kickoffAt,
+      status: externalMatch.status,
+      homeScore: result?.homeScore,
+      awayScore: result?.awayScore,
+    });
+  }
+
+  const persisted = isDatabaseConfigured()
+    ? await syncMatchesPostgres(syncedInputs)
+    : syncMatchesDemo(syncedInputs);
+
+  if (!persisted.ok) {
+    return { ok: false, message: persisted.message };
+  }
+
+  const syncedAt = new Date().toISOString();
+  await saveProviderSyncState(syncStateKey, syncedAt);
+
+  return {
+    ok: true,
+    message: "Resultados sincronizados.",
+    data: {
+      syncedAt,
+      matches: providerMatches.length,
+      results: providerResults.length,
+      provider: providerName,
+      mode: requestedMode,
+      date: options?.date,
+      fallbackAdminManual: true,
+      persistedMatches: persisted.data?.updatedMatches ?? 0,
+      persistedResults: persisted.data?.updatedResults ?? 0,
+      unmatchedMatches,
+      externalCalls: providerData.externalCalls,
+      skipped: false,
+      recommendedIntervalSeconds: cadence.intervalSeconds,
+      nextRecommendedSyncAt: getNextRecommendedSyncAt(
+        new Date(syncedAt),
+        cadence.intervalSeconds,
+      ),
+    },
   };
 }
 
@@ -313,6 +635,70 @@ export async function createSignupRequestAction(
     fullName: String(formData.get("fullName") ?? ""),
     email: String(formData.get("email") ?? ""),
   });
+}
+
+export async function setupAccessAction(
+  formData: FormData,
+): Promise<ActionResult<{ redirectTo: string }>> {
+  const token = String(formData.get("token") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const passwordHash = await hashPassword(password);
+
+  const result = isDatabaseConfigured()
+    ? await activateAccessInvitePostgres({
+        token,
+        fullName,
+        email,
+        passwordHash,
+      })
+    : activateSignupRequestDemo({
+        token,
+        fullName,
+        email,
+        passwordHash,
+      });
+
+  if (!result.ok || !result.data) {
+    return { ok: false, message: result.message };
+  }
+
+  const secret = getSessionSecret();
+  if (!secret) {
+    return { ok: false, message: "AUTH_SECRET não configurado." };
+  }
+
+  const cookieStore = await cookies();
+  const { token: sessionToken, expiresAt } = createSessionToken(
+    result.data.userId,
+    secret,
+  );
+  cookieStore.set(AUTH_COOKIE_NAME, sessionToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    expires: expiresAt,
+    maxAge: SESSION_TTL_SECONDS,
+  });
+
+  return {
+    ok: true,
+    message: "Acesso ativado.",
+    data: { redirectTo: "/app" },
+  };
+}
+
+export async function createAccessInviteAction(): Promise<
+  ActionResult<{ token: string }>
+> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
+  return isDatabaseConfigured()
+    ? createAccessInvitePostgres(admin.id)
+    : createAccessInviteDemo(admin.id);
 }
 
 export async function reviewSignupRequestAction(
@@ -496,9 +882,10 @@ export async function signInAction(
   formData: FormData,
 ): Promise<ActionResult<{ redirectTo: string }>> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
 
-  if (!email) {
-    return { ok: false, message: "Informe um email válido." };
+  if (!email || !password) {
+    return { ok: false, message: "Informe email e senha." };
   }
 
   const snapshot = await getAppSnapshot();
@@ -507,21 +894,23 @@ export async function signInAction(
   );
 
   if (!profile) {
-    const request = snapshot.signupRequests.find(
-      (item) => item.email.trim().toLowerCase() === email,
-    );
+    return { ok: false, message: "Email ou senha inválidos." };
+  }
 
-    if (request) {
-      return {
-        ok: false,
-        message:
-          request.status === "pending"
-            ? "Seu cadastro ainda está aguardando aprovação."
-            : "Seu cadastro foi recusado por um admin.",
-      };
-    }
+  const passwordHash = isDatabaseConfigured()
+    ? await getPasswordHashByEmailPostgres(email)
+    : getPasswordHashByEmailDemo(email);
 
-    return { ok: false, message: "Nenhum acesso liberado para este email." };
+  if (!passwordHash) {
+    return {
+      ok: false,
+      message: "Defina sua senha usando o link de acesso antes de entrar.",
+    };
+  }
+
+  const isPasswordValid = await verifyPassword(password, passwordHash);
+  if (!isPasswordValid) {
+    return { ok: false, message: "Email ou senha inválidos." };
   }
 
   const cookieStore = await cookies();

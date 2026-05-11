@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { authSchema, matchPredictionSchema, memberRemovalSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
+import { accessSetupSchema, authSchema, matchPredictionSchema, memberRemovalSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
 import type { ActionResult } from "@/lib/domain/types";
 import {
   removeMemberAction as removeMemberInternal,
@@ -19,6 +19,8 @@ import {
   signInAction as signInInternal,
   signOutAction as signOutInternal,
   createSignupRequestAction as createSignupRequestInternal,
+  createAccessInviteAction as createAccessInviteInternal,
+  setupAccessAction as setupAccessInternal,
 } from "@/lib/services/app-service";
 
 function toErrorResult(error: unknown): ActionResult {
@@ -166,6 +168,36 @@ export async function createSignupRequest(
   }
 }
 
+export async function setupAccess(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    accessSetupSchema.parse({
+      token: formData.get("token"),
+      fullName: formData.get("fullName"),
+      email: formData.get("email"),
+      password: formData.get("password"),
+      confirmPassword: formData.get("confirmPassword"),
+    });
+
+    const result = await setupAccessInternal(formData);
+    revalidatePath("/");
+    revalidatePath("/entrar");
+    revalidatePath("/app");
+    revalidatePath("/app/admin");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function createAccessInvite() {
+  const result = await createAccessInviteInternal();
+  revalidatePath("/app/admin");
+  return result;
+}
+
 export async function reviewSignupRequest(
   _prevState: ActionResult | undefined,
   formData: FormData,
@@ -297,6 +329,7 @@ export async function signIn(
   try {
     authSchema.parse({
       email: formData.get("email"),
+      password: formData.get("password"),
     });
 
     const result = await signInInternal(formData);

@@ -1,5 +1,6 @@
 import {
   ApproveSignupRequestButton,
+  CreateAccessInviteButton,
   RejectSignupRequestButton,
   RemoveSignupRequestButton,
   RemoveMemberButton,
@@ -31,20 +32,23 @@ export function AdminMembersManager({
   snapshot: AppSnapshot;
   currentUserId: string;
 }) {
-  const signupLink = "/cadastro";
+  const accessLink = snapshot.accessInvites[0]
+    ? `/convite/${snapshot.accessInvites[0].token}`
+    : "Nenhum link ativo";
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
+      <div className="grid gap-12 xl:grid-cols-[0.78fr_1.22fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Link de cadastro</CardTitle>
+            <CardTitle>Link de acesso</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Input value={signupLink} readOnly />
+            <Input value={accessLink} readOnly />
             <p className="text-sm text-[color:var(--text-muted)]">
-              Envie este link para quem quiser entrar. O acesso só libera depois da aprovação.
+              Envie este link para convidados criarem email e senha. O mesmo link pode ser usado por várias pessoas.
             </p>
+            <CreateAccessInviteButton />
           </CardContent>
         </Card>
 
@@ -84,7 +88,7 @@ export function AdminMembersManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>Solicitações</CardTitle>
+          <CardTitle>Acessos criados pelo link</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>

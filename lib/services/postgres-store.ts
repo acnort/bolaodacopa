@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 
 import { sampleSnapshot } from "@/lib/data/sample-data";
 import type {
+  AccessSetupInput,
   ActionResult,
   AppSnapshot,
   MatchPredictionInput,
@@ -16,6 +17,7 @@ import type {
   PredictionRule,
   SignupRequestInput,
   SignupRequestReviewInput,
+  SyncedMatchInput,
   Team,
 } from "@/lib/domain/types";
 import { getDatabasePool } from "@/lib/services/database/pool";
@@ -168,6 +170,7 @@ async function ensureDatabaseSeeded() {
         `
           insert into matches (
             id,
+            external_match_id,
             phase_id,
             round_label,
             stage_group,
@@ -179,10 +182,11 @@ async function ensureDatabaseSeeded() {
             away_placeholder,
             status
           )
-          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `,
         [
           match.id,
+          match.externalMatchId ?? null,
           match.phaseId,
           match.roundLabel,
           match.stageGroup ?? null,
@@ -259,6 +263,23 @@ async function ensureDatabaseSeeded() {
           request.reviewedAt ?? null,
           request.reviewedBy ?? null,
           request.approvedUserId ?? null,
+        ],
+      );
+    }
+
+    for (const invite of sampleSnapshot.accessInvites) {
+      await client.query(
+        `
+          insert into access_invites (id, token, created_at, created_by, revoked_at)
+          values ($1, $2, $3, $4, $5)
+          on conflict (token) do nothing
+        `,
+        [
+          invite.id,
+          invite.token,
+          invite.createdAt,
+          invite.createdBy ?? null,
+          invite.revokedAt ?? null,
         ],
       );
     }
@@ -486,6 +507,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     placementResult,
     profilesResult,
     signupRequestsResult,
+    accessInvitesResult,
     membershipsResult,
     matchPredictionsResult,
     placementPredictionsResult,
@@ -566,6 +588,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     ),
     pool.query<{
       id: string;
+      external_match_id: string | null;
       phase_id: string;
       round_label: string;
       stage_group: string | null;
@@ -580,6 +603,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       `
         select
           id,
+          external_match_id,
           phase_id,
           round_label,
           stage_group,
@@ -673,6 +697,19 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     ),
     pool.query<{
       id: string;
+      token: string;
+      created_at: string;
+      created_by: string | null;
+      revoked_at: string | null;
+    }>(
+      `
+        select id, token, created_at, created_by, revoked_at
+        from access_invites
+        order by created_at desc, id desc
+      `,
+    ),
+    pool.query<{
+      id: string;
       user_id: string;
       competition_id: string;
       role: "admin" | "member";
@@ -736,6 +773,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
     rules: rulesResult.rows.map(mapRule),
     matches: matchesResult.rows.map((row) => ({
       id: row.id,
+      externalMatchId: row.external_match_id ?? undefined,
       phaseId: row.phase_id,
       roundLabel: row.round_label,
       stageGroup: row.stage_group ?? undefined,
@@ -772,6 +810,13 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       email: row.email,
       role: row.role,
       createdAt: new Date(row.created_at).toISOString(),
+    })),
+    accessInvites: accessInvitesResult.rows.map((row) => ({
+      id: row.id,
+      token: row.token,
+      createdAt: new Date(row.created_at).toISOString(),
+      createdBy: row.created_by ?? undefined,
+      revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : undefined,
     })),
     signupRequests: signupRequestsResult.rows.map((row) => ({
       id: row.id,
@@ -1087,6 +1132,96 @@ export async function saveOfficialResultPostgres(
   }
 }
 
+export async function syncMatchesPostgres(
+  inputs: SyncedMatchInput[],
+): Promise<ActionResult<{ updatedMatches: number; updatedResults: number }>> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+  let updatedMatches = 0;
+  let updatedResults = 0;
+
+  try {
+    await client.query("begin");
+
+    for (const input of inputs) {
+      const matchResult = await client.query(
+        `
+          update matches
+          set
+            external_match_id = $2,
+            kickoff_at = $3,
+            status = $4
+          where id = $1
+        `,
+        [input.matchId, input.externalMatchId, input.kickoffAt, input.status],
+      );
+
+      updatedMatches += matchResult.rowCount ?? 0;
+
+      if (input.homeScore !== undefined && input.awayScore !== undefined) {
+        await client.query(
+          `
+            insert into official_results (match_id, home_score, away_score, published_at)
+            values ($1, $2, $3, $4)
+            on conflict (match_id)
+            do update set
+              home_score = excluded.home_score,
+              away_score = excluded.away_score,
+              published_at = excluded.published_at
+          `,
+          [input.matchId, input.homeScore, input.awayScore, nowIso()],
+        );
+        updatedResults += 1;
+      }
+    }
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Resultados sincronizados.",
+      data: { updatedMatches, updatedResults },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getProviderSyncStatePostgres(key: string) {
+  await ensureDatabaseSeeded();
+
+  const result = await requiredPool().query<{ last_synced_at: string }>(
+    "select last_synced_at from provider_sync_state where key = $1 limit 1",
+    [key],
+  );
+
+  const syncedAt = result.rows[0]?.last_synced_at;
+  return syncedAt ? new Date(syncedAt).toISOString() : undefined;
+}
+
+export async function saveProviderSyncStatePostgres(
+  key: string,
+  syncedAt = nowIso(),
+) {
+  await ensureDatabaseSeeded();
+
+  await requiredPool().query(
+    `
+      insert into provider_sync_state (key, last_synced_at, updated_at)
+      values ($1, $2, $2)
+      on conflict (key)
+      do update set
+        last_synced_at = excluded.last_synced_at,
+        updated_at = excluded.updated_at
+    `,
+    [key, syncedAt],
+  );
+}
+
 export async function savePlacementResultPostgres(
   input: PlacementResultInput,
 ): Promise<ActionResult<{ updatedId: string }>> {
@@ -1299,6 +1434,176 @@ export async function createSignupRequestPostgres(
   return {
     ok: true,
     message: "Cadastro enviado. Agora é só aguardar a aprovação.",
+    data: { token },
+  };
+}
+
+export async function getPasswordHashByEmailPostgres(email: string) {
+  await ensureDatabaseSeeded();
+
+  const result = await requiredPool().query<{ password_hash: string | null }>(
+    `
+      select password_hash
+      from users
+      where lower(email) = lower($1)
+      limit 1
+    `,
+    [email.trim().toLowerCase()],
+  );
+
+  return result.rows[0]?.password_hash ?? undefined;
+}
+
+export async function activateAccessInvitePostgres(
+  input: AccessSetupInput,
+): Promise<ActionResult<{ userId: string; email: string }>> {
+  await ensureDatabaseSeeded();
+
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    const invite = await client.query<{ id: string }>(
+      `
+        select id
+        from access_invites
+        where token = $1 and revoked_at is null
+        limit 1
+      `,
+      [input.token],
+    );
+
+    if (!invite.rowCount) {
+      await client.query("rollback");
+      return { ok: false, message: "Link de acesso inválido." };
+    }
+
+    const existingUser = await client.query<{
+      id: string;
+      password_hash: string | null;
+    }>(
+      `
+        select id, password_hash
+        from users
+        where lower(email) = lower($1)
+        limit 1
+      `,
+      [normalizedEmail],
+    );
+
+    const timestamp = nowIso();
+    const existing = existingUser.rows[0];
+
+    if (existing?.password_hash) {
+      await client.query("rollback");
+      return { ok: false, message: "Este email já tem acesso ao bolão." };
+    }
+
+    if (existing) {
+      await client.query(
+        `
+          update users
+          set password_hash = $2
+          where id = $1
+        `,
+        [existing.id, input.passwordHash],
+      );
+
+      await client.query("commit");
+
+      return {
+        ok: true,
+        message: "Senha definida.",
+        data: { userId: existing.id, email: normalizedEmail },
+      };
+    }
+
+    const userId = nextId("user");
+    const requestId = nextId("signup-request");
+
+    await client.query(
+      `
+        insert into users (id, email, password_hash, created_at)
+        values ($1, $2, $3, $4)
+      `,
+      [userId, normalizedEmail, input.passwordHash, timestamp],
+    );
+
+    await client.query(
+      `
+        insert into profiles (id, user_id, full_name, role, created_at)
+        values ($1, $2, $3, $4, $5)
+      `,
+      [userId, userId, input.fullName, "member", timestamp],
+    );
+
+    await client.query(
+      `
+        insert into memberships (id, user_id, competition_id, role, joined_at)
+        values ($1, $2, $3, $4, $5)
+      `,
+      [nextId("membership"), userId, sampleSnapshot.competition.id, "member", timestamp],
+    );
+
+    await client.query(
+      `
+        insert into signup_requests (
+          id,
+          full_name,
+          email,
+          token,
+          role,
+          status,
+          requested_at,
+          reviewed_at,
+          approved_user_id
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $7, $8)
+      `,
+      [
+        requestId,
+        input.fullName,
+        normalizedEmail,
+        input.token,
+        "member",
+        "approved",
+        timestamp,
+        userId,
+      ],
+    );
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Acesso ativado.",
+      data: { userId, email: normalizedEmail },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createAccessInvitePostgres(createdBy?: string) {
+  await ensureDatabaseSeeded();
+
+  const token = nextId("access");
+  await requiredPool().query(
+    `
+      insert into access_invites (id, token, created_at, created_by)
+      values ($1, $2, $3, $4)
+    `,
+    [nextId("access-invite"), token, nowIso(), createdBy ?? null],
+  );
+
+  return {
+    ok: true,
+    message: "Link de acesso gerado.",
     data: { token },
   };
 }

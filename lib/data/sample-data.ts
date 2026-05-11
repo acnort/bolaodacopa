@@ -509,6 +509,14 @@ export const sampleSnapshot: AppSnapshot = {
       createdAt: "2026-05-04T16:00:00.000Z",
     },
   ],
+  accessInvites: [
+    {
+      id: "access-invite-1",
+      token: "convite-bolao-2026",
+      createdAt: "2026-05-01T10:00:00.000Z",
+      createdBy: "user-ana",
+    },
+  ],
   signupRequests: [
     {
       id: "signup-request-1",

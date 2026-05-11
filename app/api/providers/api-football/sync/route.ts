@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getApiFootballConfig } from "@/lib/services/api-football-config";
-import { getResultsProvider } from "@/lib/services/results-provider-factory";
+import { getFootballDataConfig } from "@/lib/services/football-data-config";
+import { syncResultsProviderAction } from "@/lib/services/app-service";
 
 export async function GET(request: NextRequest) {
-  const config = getApiFootballConfig();
+  const config = getFootballDataConfig();
   if (!config) {
     return NextResponse.json(
-      { ok: false, message: "API-Football não configurada." },
+      { ok: false, message: "football-data.org não configurada." },
       { status: 503 },
     );
   }
@@ -28,12 +28,17 @@ export async function GET(request: NextRequest) {
 
   const modeParam = request.nextUrl.searchParams.get("mode");
   const date = request.nextUrl.searchParams.get("date") ?? undefined;
-  const mode = modeParam === "live-window" ? "live-window" : "daily";
-  const provider = getResultsProvider();
+  const force = request.nextUrl.searchParams.get("force") === "true";
+  const mode =
+    modeParam === "adaptive"
+      ? "adaptive"
+      : modeParam === "live-window"
+        ? "live-window"
+        : "daily";
 
   try {
-    const summary = await provider.syncCompetitionData({ mode, date });
-    return NextResponse.json({ ok: true, summary });
+    const result = await syncResultsProviderAction({ mode, date, force });
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   } catch (error) {
     return NextResponse.json(
       {

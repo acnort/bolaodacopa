@@ -64,7 +64,7 @@ export async function RankingView() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-12 xl:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <Card>
             <CardHeader>

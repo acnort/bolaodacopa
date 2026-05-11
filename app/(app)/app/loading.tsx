@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function AppLoading() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+    <div className="grid gap-12 xl:grid-cols-[1fr_320px]">
       <Card>
         <CardHeader>
           <div className="h-5 w-32 rounded-md bg-[color:var(--surface-muted)]" />

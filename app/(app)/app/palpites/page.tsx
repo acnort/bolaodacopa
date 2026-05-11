@@ -124,7 +124,7 @@ export default async function PredictionsPage({
   });
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
       <PhasePredictionsForm
         currentUserId={currentUserId}
         competitionId={snapshot.competition.id}

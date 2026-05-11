@@ -2,10 +2,10 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LogIn } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { signIn } from "@/app/actions";
+import { setupAccess } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,9 @@ const initialState: ActionResult<{ redirectTo: string }> = {
   message: "",
 };
 
-export function SignInForm({ defaultEmail = "" }: { defaultEmail?: string }) {
+export function AccessSetupForm({ token }: { token: string }) {
   const router = useRouter();
-  const [state, formAction] = useActionState(signIn, initialState);
+  const [state, formAction] = useActionState(setupAccess, initialState);
   const redirectTo =
     state.data && typeof state.data === "object" && "redirectTo" in state.data
       ? String(state.data.redirectTo)
@@ -34,8 +34,18 @@ export function SignInForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   }, [redirectTo, router, state]);
 
   return (
-    <form action={formAction} className="space-y-6">
-      <div className="space-y-3">
+    <form action={formAction} className="space-y-5">
+      <input type="hidden" name="token" value={token} />
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-[color:var(--text-strong)]">
+          Nome completo
+        </label>
+        <Input name="fullName" placeholder="Seu nome" autoComplete="name" />
+        <FormFeedback field="fullName" state={state} />
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Email
         </label>
@@ -43,29 +53,42 @@ export function SignInForm({ defaultEmail = "" }: { defaultEmail?: string }) {
           name="email"
           type="email"
           placeholder="voce@exemplo.com"
-          defaultValue={defaultEmail}
+          autoComplete="email"
         />
         <FormFeedback field="email" state={state} />
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Senha
         </label>
         <Input
           name="password"
           type="password"
-          placeholder="Sua senha"
-          autoComplete="current-password"
+          placeholder="Mínimo 8 caracteres"
+          autoComplete="new-password"
         />
         <FormFeedback field="password" state={state} />
       </div>
 
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-[color:var(--text-strong)]">
+          Confirmar senha
+        </label>
+        <Input
+          name="confirmPassword"
+          type="password"
+          placeholder="Repita a senha"
+          autoComplete="new-password"
+        />
+        <FormFeedback field="confirmPassword" state={state} />
+      </div>
+
       <FormFeedback state={state} />
 
-      <SubmitButton className="w-full" pendingLabel="Entrando...">
-        <LogIn className="h-4 w-4" />
-        Entrar
+      <SubmitButton className="w-full" pendingLabel="Ativando acesso...">
+        <KeyRound className="h-4 w-4" />
+        Ativar acesso
       </SubmitButton>
     </form>
   );

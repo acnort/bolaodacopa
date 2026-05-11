@@ -48,13 +48,21 @@ create table if not exists signup_requests (
   id text primary key,
   full_name text not null,
   email text not null,
-  token text not null unique,
+  token text not null,
   role text not null check (role in ('admin', 'member')),
   status text not null check (status in ('pending', 'approved', 'rejected')),
   requested_at timestamptz not null default timezone('utc', now()),
   reviewed_at timestamptz,
   reviewed_by text references profiles(id) on delete set null,
   approved_user_id text references users(id) on delete set null
+);
+
+create table if not exists access_invites (
+  id text primary key,
+  token text not null unique,
+  created_at timestamptz not null default timezone('utc', now()),
+  created_by text references profiles(id) on delete set null,
+  revoked_at timestamptz
 );
 
 create table if not exists phases (
@@ -93,6 +101,7 @@ create table if not exists prediction_rules (
 
 create table if not exists matches (
   id text primary key,
+  external_match_id text,
   phase_id text not null references phases(id) on delete cascade,
   round_label text not null,
   stage_group text,
@@ -155,8 +164,17 @@ create table if not exists score_entries (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists provider_sync_state (
+  key text primary key,
+  last_synced_at timestamptz not null,
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
 create index if not exists idx_teams_competition_id on teams (competition_id);
 create index if not exists idx_matches_phase_id on matches (phase_id);
+alter table matches add column if not exists external_match_id text;
+create unique index if not exists idx_matches_external_match_id on matches (external_match_id);
 create index if not exists idx_matches_kickoff_at on matches (kickoff_at);
 create index if not exists idx_predictions_user_id on match_predictions (user_id);
 create index if not exists idx_signup_requests_email on signup_requests (email);
+create index if not exists idx_access_invites_token on access_invites (token);

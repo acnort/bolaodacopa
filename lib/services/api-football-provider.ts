@@ -109,13 +109,22 @@ function mapFixtureToResult(
 }
 
 export const apiFootballProvider: ResultsProvider = {
-  async listMatches() {
-    const daily = await fetchFixturesByDate(getTodayInSyncTimezone());
+  async getMatchData(options?: ResultsSyncOptions) {
+    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
+    return {
+      matches: daily.response.map(mapFixtureToMatch),
+      results: daily.response.map(mapFixtureToResult).filter(Boolean) as OfficialResult[],
+      externalCalls: 1,
+    };
+  },
+
+  async listMatches(options?: ResultsSyncOptions) {
+    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
     return daily.response.map(mapFixtureToMatch);
   },
 
-  async getResults() {
-    const daily = await fetchFixturesByDate(getTodayInSyncTimezone());
+  async getResults(options?: ResultsSyncOptions) {
+    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
     return daily.response.map(mapFixtureToResult).filter(Boolean) as OfficialResult[];
   },
 

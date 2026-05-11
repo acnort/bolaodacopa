@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bolaov2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bolaov2}
+      POSTGRES_USER: ${POSTGRES_USER:-bolaov2}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - bolaov2-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bolaov2} -d ${POSTGRES_DB:-bolaov2}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bolaov2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3102}:3000"
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-bolaov2}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bolaov2}
+      DATABASE_SSL: "false"
+
+  results-sync:
+    image: curlimages/curl:8.16.0
+    container_name: bolaov2-results-sync
+    restart: unless-stopped
+    depends_on:
+      - app
+    env_file:
+      - ${ENV_FILE:-.env}
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          curl -fsS -H "x-cron-secret: $${INTERNAL_CRON_SECRET}" "http://app:3000/api/providers/football-data/sync?mode=adaptive" || true
+          sleep 60
+        done
+
+volumes:
+  bolaov2-postgres:
+    driver: local

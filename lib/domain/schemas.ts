@@ -78,6 +78,19 @@ export const signupRequestSchema = z.object({
   email: z.email(),
 });
 
+export const accessSetupSchema = z
+  .object({
+    token: z.string().min(1),
+    fullName: z.string().min(3).max(80),
+    email: z.email(),
+    password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
+    confirmPassword: z.string().min(8),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "As senhas precisam ser iguais.",
+    path: ["confirmPassword"],
+  });
+
 export const signupRequestRemovalSchema = z.object({
   requestId: z.string().min(1),
 });
@@ -93,4 +106,5 @@ export const signupRequestReviewSchema = z.object({
 
 export const authSchema = z.object({
   email: z.email(),
+  password: z.string().min(1, "Informe sua senha."),
 });

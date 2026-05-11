@@ -1,6 +1,7 @@
 "use client";
 
-import { useOptimistic } from "react";
+import { startTransition, useOptimistic } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListChecks, LogOut, Medal, Menu, Shield } from "lucide-react";
@@ -38,7 +39,10 @@ function NavigationLinks({
           <Link
             key={href}
             href={href}
-            onClick={() => onNavigate?.(href)}
+            onClick={() => {
+              if (!onNavigate) return;
+              startTransition(() => onNavigate(href));
+            }}
             className={cn(
               "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition",
               active
@@ -82,15 +86,18 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] gap-6 px-4 py-4 md:px-6 xl:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1540px] gap-12 px-4 py-4 md:px-6 xl:px-8">
         <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-elevated)] p-5 shadow-[var(--shadow-card)] lg:flex lg:flex-col">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-              Bolão da Copa
-            </p>
-            <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-strong)]">
-              {userName}
-            </h1>
+          <div className="flex justify-center">
+            <div className="relative h-32 w-48 shrink-0">
+              <Image
+                src="/logo_h.png"
+                alt="Bolão da Copa"
+                fill
+                sizes="192px"
+                className="object-contain"
+              />
+            </div>
           </div>
           <div className="mt-8 flex-1">
             <NavigationLinks
@@ -99,10 +106,15 @@ export function AppShell({
               onNavigate={setOptimisticPath}
             />
           </div>
-          <SignOutForm />
+          <div className="space-y-3">
+            <p className="truncate px-3 text-sm font-semibold text-[color:var(--text-strong)]">
+              {userName}
+            </p>
+            <SignOutForm />
+          </div>
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-6">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-12">
           <Drawer>
             <DrawerTrigger asChild>
               <Button variant="secondary" size="icon" className="lg:hidden">

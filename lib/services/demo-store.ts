@@ -2,6 +2,7 @@ import "server-only";
 
 import { demoCurrentUserId, sampleSnapshot } from "@/lib/data/sample-data";
 import {
+  type AccessSetupInput,
   type ActionResult,
   type AppSnapshot,
   type MatchPredictionInput,
@@ -12,10 +13,13 @@ import {
   type PlacementResultInput,
   type SignupRequestInput,
   type SignupRequestReviewInput,
+  type SyncedMatchInput,
 } from "@/lib/domain/types";
 
 const state = {
   snapshot: structuredClone(sampleSnapshot) as AppSnapshot,
+  syncState: new Map<string, string>(),
+  passwordHashes: new Map<string, string>(),
 };
 
 function nowIso() {
@@ -36,6 +40,8 @@ export function getDemoCurrentUser() {
 
 export function resetDemoStore() {
   state.snapshot = structuredClone(sampleSnapshot);
+  state.syncState.clear();
+  state.passwordHashes.clear();
 }
 
 export function saveMatchPredictionDemo(
@@ -183,6 +189,60 @@ export function saveOfficialResultDemo(
     message: "Resultado oficial salvo.",
     data: { updatedId: input.matchId },
   };
+}
+
+export function syncMatchesDemo(
+  inputs: SyncedMatchInput[],
+): ActionResult<{ updatedMatches: number; updatedResults: number }> {
+  let updatedMatches = 0;
+  let updatedResults = 0;
+
+  for (const input of inputs) {
+    const match = state.snapshot.matches.find((item) => item.id === input.matchId);
+    if (!match) continue;
+
+    match.externalMatchId = input.externalMatchId;
+    match.kickoffAt = input.kickoffAt;
+    match.status = input.status;
+    updatedMatches += 1;
+
+    if (input.homeScore === undefined || input.awayScore === undefined) {
+      continue;
+    }
+
+    const existing = state.snapshot.results.find(
+      (item) => item.matchId === input.matchId,
+    );
+
+    if (existing) {
+      existing.homeScore = input.homeScore;
+      existing.awayScore = input.awayScore;
+      existing.publishedAt = nowIso();
+    } else {
+      state.snapshot.results.push({
+        matchId: input.matchId,
+        homeScore: input.homeScore,
+        awayScore: input.awayScore,
+        publishedAt: nowIso(),
+      });
+    }
+
+    updatedResults += 1;
+  }
+
+  return {
+    ok: true,
+    message: "Resultados sincronizados.",
+    data: { updatedMatches, updatedResults },
+  };
+}
+
+export function getProviderSyncStateDemo(key: string) {
+  return state.syncState.get(key);
+}
+
+export function saveProviderSyncStateDemo(key: string, syncedAt = nowIso()) {
+  state.syncState.set(key, syncedAt);
 }
 
 export function savePlacementResultDemo(
@@ -393,5 +453,95 @@ export function reviewSignupRequestDemo(
     ok: true,
     message: "Cadastro aprovado.",
     data: { userId },
+  };
+}
+
+export function getPasswordHashByEmailDemo(email: string) {
+  const profile = state.snapshot.profiles.find(
+    (item) => item.email.toLowerCase() === email.trim().toLowerCase(),
+  );
+
+  return profile ? state.passwordHashes.get(profile.id) : undefined;
+}
+
+export function activateSignupRequestDemo(
+  input: AccessSetupInput,
+): ActionResult<{ userId: string; email: string }> {
+  const invite = state.snapshot.accessInvites.find(
+    (item) => item.token === input.token && !item.revokedAt,
+  );
+
+  if (!invite) {
+    return { ok: false, message: "Link de acesso inválido." };
+  }
+
+  const existingProfile = state.snapshot.profiles.find(
+    (item) => item.email.toLowerCase() === input.email.trim().toLowerCase(),
+  );
+
+  if (existingProfile && state.passwordHashes.has(existingProfile.id)) {
+    return { ok: false, message: "Este email já tem acesso ao bolão." };
+  }
+
+  if (existingProfile) {
+    state.passwordHashes.set(existingProfile.id, input.passwordHash);
+    return {
+      ok: true,
+      message: "Senha definida.",
+      data: { userId: existingProfile.id, email: existingProfile.email },
+    };
+  }
+
+  const userId = nextId("user");
+  const timestamp = nowIso();
+  const normalizedEmail = input.email.trim().toLowerCase();
+
+  state.snapshot.profiles.push({
+    id: userId,
+    fullName: input.fullName,
+    email: normalizedEmail,
+    role: "member",
+    createdAt: timestamp,
+  });
+  state.snapshot.memberships.push({
+    id: nextId("membership"),
+    userId,
+    competitionId: state.snapshot.competition.id,
+    role: "member",
+    joinedAt: timestamp,
+  });
+  state.snapshot.signupRequests.unshift({
+    id: nextId("signup-request"),
+    fullName: input.fullName,
+    email: normalizedEmail,
+    token: input.token,
+    role: "member",
+    status: "approved",
+    requestedAt: timestamp,
+    reviewedAt: timestamp,
+    approvedUserId: userId,
+  });
+  state.passwordHashes.set(userId, input.passwordHash);
+
+  return {
+    ok: true,
+    message: "Acesso ativado.",
+    data: { userId, email: normalizedEmail },
+  };
+}
+
+export function createAccessInviteDemo(createdBy?: string) {
+  const token = nextId("access");
+  state.snapshot.accessInvites.unshift({
+    id: nextId("access-invite"),
+    token,
+    createdAt: nowIso(),
+    createdBy,
+  });
+
+  return {
+    ok: true,
+    message: "Link de acesso gerado.",
+    data: { token },
   };
 }
