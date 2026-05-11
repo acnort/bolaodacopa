@@ -178,7 +178,7 @@ No servidor, crie:
 
 Baseie no `.env.production.example`. O compose sobe:
 
-- `bolaov2`: app Next.js em `APP_PORT`, default `3102`
+- `bolaov2`: app Next.js em `APP_PORT`, default `3103`
 - `bolaov2-db`: Postgres 16 com volume `bolaov2-postgres`
 - `bolaov2-results-sync`: chamada por minuto para `mode=adaptive`
 
