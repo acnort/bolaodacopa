@@ -21,6 +21,11 @@ import type {
   Team,
 } from "@/lib/domain/types";
 import { getDatabasePool } from "@/lib/services/database/pool";
+import { hashPassword } from "@/lib/services/passwords";
+
+function shouldSeedDemoData() {
+  return process.env.ENABLE_DEMO_SEED === "true";
+}
 
 function nextId(prefix: string) {
   return `${prefix}-${randomUUID()}`;
@@ -201,168 +206,210 @@ async function ensureDatabaseSeeded() {
       );
     }
 
-    for (const profile of sampleSnapshot.profiles) {
+    const seedDemoData = shouldSeedDemoData();
+
+    if (seedDemoData) {
+      for (const profile of sampleSnapshot.profiles) {
+        await client.query(
+          `
+            insert into users (id, email, created_at)
+            values ($1, $2, $3)
+          `,
+          [profile.id, profile.email, profile.createdAt],
+        );
+
+        await client.query(
+          `
+            insert into profiles (id, user_id, full_name, role, created_at)
+            values ($1, $2, $3, $4, $5)
+          `,
+          [profile.id, profile.id, profile.fullName, profile.role, profile.createdAt],
+        );
+      }
+
+      for (const membership of sampleSnapshot.memberships) {
+        await client.query(
+          `
+            insert into memberships (id, user_id, competition_id, role, joined_at)
+            values ($1, $2, $3, $4, $5)
+          `,
+          [
+            membership.id,
+            membership.userId,
+            membership.competitionId,
+            membership.role,
+            membership.joinedAt,
+          ],
+        );
+      }
+
+      for (const request of sampleSnapshot.signupRequests) {
+        await client.query(
+          `
+            insert into signup_requests (
+              id,
+              full_name,
+              email,
+              token,
+              role,
+              status,
+              requested_at,
+              reviewed_at,
+              reviewed_by,
+              approved_user_id
+            )
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          `,
+          [
+            request.id,
+            request.fullName,
+            request.email,
+            request.token,
+            request.role,
+            request.status,
+            request.requestedAt,
+            request.reviewedAt ?? null,
+            request.reviewedBy ?? null,
+            request.approvedUserId ?? null,
+          ],
+        );
+      }
+
+      for (const result of sampleSnapshot.results) {
+        await client.query(
+          `
+            insert into official_results (match_id, home_score, away_score, published_at)
+            values ($1, $2, $3, $4)
+          `,
+          [result.matchId, result.homeScore, result.awayScore, result.publishedAt],
+        );
+      }
+
       await client.query(
         `
-          insert into users (id, email, created_at)
-          values ($1, $2, $3)
+          insert into placement_results (
+            competition_id,
+            champion_team_id,
+            runner_up_team_id,
+            third_place_team_id,
+            published_at
+          )
+          values ($1, $2, $3, $4, $5)
         `,
-        [profile.id, profile.email, profile.createdAt],
+        [
+          sampleSnapshot.placementResult.competitionId,
+          sampleSnapshot.placementResult.championTeamId ?? null,
+          sampleSnapshot.placementResult.runnerUpTeamId ?? null,
+          sampleSnapshot.placementResult.thirdPlaceTeamId ?? null,
+          sampleSnapshot.placementResult.publishedAt ?? null,
+        ],
+      );
+
+      for (const prediction of sampleSnapshot.matchPredictions) {
+        await client.query(
+          `
+            insert into match_predictions (
+              id,
+              user_id,
+              match_id,
+              home_score,
+              away_score,
+              created_at,
+              updated_at
+            )
+            values ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [
+            prediction.id,
+            prediction.userId,
+            prediction.matchId,
+            prediction.homeScore,
+            prediction.awayScore,
+            prediction.createdAt,
+            prediction.updatedAt,
+          ],
+        );
+      }
+
+      for (const prediction of sampleSnapshot.placementPredictions) {
+        await client.query(
+          `
+            insert into placement_predictions (
+              id,
+              user_id,
+              competition_id,
+              champion_team_id,
+              runner_up_team_id,
+              third_place_team_id,
+              updated_at
+            )
+            values ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [
+            prediction.id,
+            prediction.userId,
+            prediction.competitionId,
+            prediction.championTeamId ?? null,
+            prediction.runnerUpTeamId ?? null,
+            prediction.thirdPlaceTeamId ?? null,
+            prediction.updatedAt,
+          ],
+        );
+      }
+    }
+
+    const bootstrapAdminEmail = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+    const bootstrapAdminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim();
+    const bootstrapAdminName =
+      process.env.BOOTSTRAP_ADMIN_NAME?.trim() ?? "Admin";
+
+    if (bootstrapAdminEmail && bootstrapAdminPassword) {
+      const userId = nextId("user");
+      const createdAt = nowIso();
+      await client.query(
+        `
+          insert into users (id, email, password_hash, created_at)
+          values ($1, $2, $3, $4)
+          on conflict (email) do nothing
+        `,
+        [userId, bootstrapAdminEmail, await hashPassword(bootstrapAdminPassword), createdAt],
       );
 
       await client.query(
         `
           insert into profiles (id, user_id, full_name, role, created_at)
-          values ($1, $2, $3, $4, $5)
+          select $1, $1, $2, 'admin', $3
+          where exists (select 1 from users where id = $1)
+          on conflict (id) do nothing
         `,
-        [profile.id, profile.id, profile.fullName, profile.role, profile.createdAt],
+        [userId, bootstrapAdminName, createdAt],
       );
-    }
 
-    for (const membership of sampleSnapshot.memberships) {
       await client.query(
         `
           insert into memberships (id, user_id, competition_id, role, joined_at)
-          values ($1, $2, $3, $4, $5)
+          select $1, $2, $3, 'admin', $4
+          where exists (select 1 from profiles where id = $2)
+          on conflict (user_id, competition_id) do nothing
         `,
-        [
-          membership.id,
-          membership.userId,
-          membership.competitionId,
-          membership.role,
-          membership.joinedAt,
-        ],
+        [nextId("membership"), userId, sampleSnapshot.competition.id, createdAt],
       );
     }
 
-    for (const request of sampleSnapshot.signupRequests) {
-      await client.query(
-        `
-          insert into signup_requests (
-            id,
-            full_name,
-            email,
-            token,
-            role,
-            status,
-            requested_at,
-            reviewed_at,
-            reviewed_by,
-            approved_user_id
-          )
-          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        `,
-        [
-          request.id,
-          request.fullName,
-          request.email,
-          request.token,
-          request.role,
-          request.status,
-          request.requestedAt,
-          request.reviewedAt ?? null,
-          request.reviewedBy ?? null,
-          request.approvedUserId ?? null,
-        ],
-      );
-    }
+    const initialInviteToken = process.env.INITIAL_ACCESS_TOKEN?.trim();
+    const inviteTokens = [
+      ...(seedDemoData ? sampleSnapshot.accessInvites.map((invite) => invite.token) : []),
+      ...(initialInviteToken ? [initialInviteToken] : []),
+    ];
 
-    for (const invite of sampleSnapshot.accessInvites) {
+    for (const token of inviteTokens) {
       await client.query(
         `
-          insert into access_invites (id, token, created_at, created_by, revoked_at)
-          values ($1, $2, $3, $4, $5)
+          insert into access_invites (id, token, created_at)
+          values ($1, $2, $3)
           on conflict (token) do nothing
         `,
-        [
-          invite.id,
-          invite.token,
-          invite.createdAt,
-          invite.createdBy ?? null,
-          invite.revokedAt ?? null,
-        ],
-      );
-    }
-
-    for (const result of sampleSnapshot.results) {
-      await client.query(
-        `
-          insert into official_results (match_id, home_score, away_score, published_at)
-          values ($1, $2, $3, $4)
-        `,
-        [result.matchId, result.homeScore, result.awayScore, result.publishedAt],
-      );
-    }
-
-    await client.query(
-      `
-        insert into placement_results (
-          competition_id,
-          champion_team_id,
-          runner_up_team_id,
-          third_place_team_id,
-          published_at
-        )
-        values ($1, $2, $3, $4, $5)
-      `,
-      [
-        sampleSnapshot.placementResult.competitionId,
-        sampleSnapshot.placementResult.championTeamId ?? null,
-        sampleSnapshot.placementResult.runnerUpTeamId ?? null,
-        sampleSnapshot.placementResult.thirdPlaceTeamId ?? null,
-        sampleSnapshot.placementResult.publishedAt ?? null,
-      ],
-    );
-
-    for (const prediction of sampleSnapshot.matchPredictions) {
-      await client.query(
-        `
-          insert into match_predictions (
-            id,
-            user_id,
-            match_id,
-            home_score,
-            away_score,
-            created_at,
-            updated_at
-          )
-          values ($1, $2, $3, $4, $5, $6, $7)
-        `,
-        [
-          prediction.id,
-          prediction.userId,
-          prediction.matchId,
-          prediction.homeScore,
-          prediction.awayScore,
-          prediction.createdAt,
-          prediction.updatedAt,
-        ],
-      );
-    }
-
-    for (const prediction of sampleSnapshot.placementPredictions) {
-      await client.query(
-        `
-          insert into placement_predictions (
-            id,
-            user_id,
-            competition_id,
-            champion_team_id,
-            runner_up_team_id,
-            third_place_team_id,
-            updated_at
-          )
-          values ($1, $2, $3, $4, $5, $6, $7)
-        `,
-        [
-          prediction.id,
-          prediction.userId,
-          prediction.competitionId,
-          prediction.championTeamId ?? null,
-          prediction.runnerUpTeamId ?? null,
-          prediction.thirdPlaceTeamId ?? null,
-          prediction.updatedAt,
-        ],
+        [nextId("access-invite"), token, nowIso()],
       );
     }
 
@@ -409,6 +456,10 @@ export async function getPostgresCurrentUser() {
     if (result.rowCount) {
       return result.rows[0]!.id;
     }
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Usuário atual não informado.");
   }
 
   const fallback = await pool.query<{ id: string }>(

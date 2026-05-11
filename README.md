@@ -3,13 +3,13 @@
 Aplicação `Next.js` para um bolão privado da Copa do Mundo entre amigos, com:
 
 - site responsivo para desktop e mobile
-- cadastro público com aprovação manual por admin
-- acesso privado por email aprovado e sessão via cookie HTTP-only
+- cadastro privado por link de convite com token
+- acesso privado por email/senha e sessão via cookie HTTP-only
 - palpites de jogos e pódio final
 - ranking geral com desempate por acerto exato e depois resultado correto
 - painel admin para solicitações de cadastro, membros, regras por fase e resultados oficiais
 - fonte manual de resultados no v1, com `ResultsProvider` integrado ao `football-data.org`
-- persistência em `Postgres` puro, com fallback demo em memória
+- persistência em `Postgres` puro, com modo demo apenas para desenvolvimento local
 
 ## Stack
 
@@ -65,22 +65,22 @@ npm run db:logs
 npm run db:migrate
 ```
 
-## Modo demo
+## Modo Demo Local
 
-Sem `DATABASE_URL` configurada, a aplicação roda em modo demonstrativo com:
+Sem `DATABASE_URL` configurada e fora de produção, a aplicação roda em modo demonstrativo com:
 
 - snapshot inicial em memória
 - server actions reais
 - persistência temporária durante a sessão do servidor
-- fluxo de cadastro, login por email aprovado e admin já navegável para validar UX e regras
+- fluxo local para validar UX e regras
+
+Em produção, `DATABASE_URL` é obrigatória. Sem banco configurado, a aplicação falha em vez de cair em dados demo.
 
 ## Rotas principais
 
 - `/` landing pública
-- `/cadastro` solicitação pública de acesso
-- `/cadastro/status/[token]` acompanhamento da solicitação
-- `/entrar` login por email já aprovado
-- `/convite/[token]` rota legada que redireciona para o status do cadastro
+- `/entrar` login por email e senha
+- `/convite/[token]` cadastro privado por token de acesso
 - `/app` ranking privado
 - `/app/palpites` palpites por fase
 - `/app/admin` painel administrativo
@@ -102,12 +102,15 @@ Variáveis necessárias:
 - `AUTH_SECRET`
 - `APP_URL`
 
-Variáveis opcionais de desenvolvimento:
+Variáveis opcionais de bootstrap inicial:
 
-- `APP_CURRENT_USER_ID`
-- `APP_CURRENT_USER_EMAIL`
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_NAME`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `INITIAL_ACCESS_TOKEN`
+- `ENABLE_DEMO_SEED=true` para inserir usuários, palpites e resultados fake no banco local
 
-Observação: o login atual é propositalmente simples para o MVP privado. Ele valida se o email já está aprovado e grava uma sessão assinada no cookie HTTP-only `bolao-user-id`.
+Observação: `BOOTSTRAP_ADMIN_PASSWORD` só deve ser usado para criar o primeiro admin em um banco novo. Depois do primeiro deploy, remova ou troque esse valor do `.env` do servidor.
 
 ## football-data.org
 
@@ -121,12 +124,12 @@ Variáveis adicionais:
 
 - `FOOTBALL_DATA_API_KEY` ou `API_FOOTBALL_KEY` como fallback legado
 - `FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4`
-- `FOOTBALL_DATA_COMPETITION_ID=2000`
+- `FOOTBALL_DATA_COMPETITION_ID=2178`
 - `INTERNAL_CRON_SECRET`
 
 O provider chama:
 
-- `GET /competitions/2000/matches`
+- `GET /competitions/2178/matches`
 - header `X-Auth-Token: $FOOTBALL_DATA_API_KEY`
 
 O dashboard não chama a API externa no render. A sincronização acontece apenas via rota interna/cron para preservar a quota.
@@ -199,8 +202,8 @@ As migrations SQL rodam automaticamente no startup do container da aplicação v
 
 ## Observações
 
-- O contrato `ResultsProvider` suporta provider mock, `football-data.org` e fallback legado de `API-Football`.
+- O contrato `ResultsProvider` suporta mock apenas em desenvolvimento, `football-data.org` e fallback legado de `API-Football`.
 - Os grupos oficiais de 2026 estão espelhados no sample local e em seed SQL para o banco.
-- Sem `DATABASE_URL`, a aplicação usa store demo em memória; com `DATABASE_URL`, usa Postgres.
-- O fluxo antigo de convites foi substituído por solicitações de cadastro aprovadas no admin.
+- Sem `DATABASE_URL`, a aplicação usa store demo em memória apenas fora de produção; com `DATABASE_URL`, usa Postgres.
+- O cadastro de novos usuários é feito por `/convite/[token]`; acesso direto ao site é apenas login.
 - Não há qualquer fluxo financeiro no app.

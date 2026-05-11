@@ -30,6 +30,8 @@ export interface ResultsSyncSummary {
   nextRecommendedSyncAt?: string;
 }
 
+export type ResultsProviderName = ResultsSyncSummary["provider"] | "unconfigured";
+
 export interface ResultsProvider {
   listMatches(options?: ResultsSyncOptions): Promise<Match[]>;
   getResults(options?: ResultsSyncOptions): Promise<OfficialResult[]>;

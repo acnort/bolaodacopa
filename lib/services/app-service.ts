@@ -13,14 +13,16 @@ import type {
   Profile,
   SyncedMatchInput,
 } from "@/lib/domain/types";
-import { isDatabaseConfigured } from "@/lib/services/database/shared";
+import {
+  isDatabaseConfigured,
+  requireDatabaseInProduction,
+} from "@/lib/services/database/shared";
 import {
   activateSignupRequestDemo,
   createAccessInviteDemo,
   createSignupRequestDemo,
   getProviderSyncStateDemo,
   getPasswordHashByEmailDemo,
-  getDemoCurrentUser,
   getDemoSnapshot,
   removeMemberDemo,
   removeSignupRequestDemo,
@@ -40,7 +42,6 @@ import {
   createSignupRequestPostgres,
   getProviderSyncStatePostgres,
   getPasswordHashByEmailPostgres,
-  getPostgresCurrentUser,
   getPostgresSnapshot,
   removeMemberPostgres,
   removeSignupRequestPostgres,
@@ -78,7 +79,7 @@ const BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60;
 
 let providerCallTimestamps: number[] = [];
 
-function isDevelopmentAuthFallbackEnabled() {
+function isDevelopmentSessionSecretFallbackEnabled() {
   return process.env.NODE_ENV !== "production";
 }
 
@@ -86,7 +87,7 @@ function getSessionSecret() {
   const secret = process.env.AUTH_SECRET?.trim();
   if (secret) return secret;
 
-  return isDevelopmentAuthFallbackEnabled()
+  return isDevelopmentSessionSecretFallbackEnabled()
     ? "bolaov2-local-development-secret"
     : undefined;
 }
@@ -107,23 +108,10 @@ async function getSessionProfile(snapshot?: AppSnapshot) {
   return data.profiles.find((profile) => profile.id === session.userId);
 }
 
-async function getDevelopmentCurrentUserId() {
-  if (!isDevelopmentAuthFallbackEnabled()) return undefined;
-
-  return isDatabaseConfigured()
-    ? getPostgresCurrentUser()
-    : getDemoCurrentUser();
-}
-
 async function getActionProfile(snapshot?: AppSnapshot): Promise<Profile | undefined> {
   const data = snapshot ?? (await getAppSnapshot());
   const sessionProfile = await getSessionProfile(data);
-  if (sessionProfile) return sessionProfile;
-
-  const developmentUserId = await getDevelopmentCurrentUserId();
-  if (!developmentUserId) return undefined;
-
-  return data.profiles.find((profile) => profile.id === developmentUserId);
+  return sessionProfile;
 }
 
 async function requireActionProfile(snapshot?: AppSnapshot) {
@@ -154,6 +142,7 @@ function forbiddenResult<T = unknown>(): ActionResult<T> {
 
 export async function getAppSnapshot() {
   noStore();
+  requireDatabaseInProduction();
   return isDatabaseConfigured() ? getPostgresSnapshot() : getDemoSnapshot();
 }
 
@@ -161,20 +150,18 @@ export async function getCurrentUserId(snapshot?: AppSnapshot) {
   const sessionProfile = await getSessionProfile(snapshot);
   if (sessionProfile) return sessionProfile.id;
 
-  return (await getDevelopmentCurrentUserId()) ?? "";
+  return "";
 }
 
 export async function getCurrentUser(snapshot?: AppSnapshot) {
   const data = snapshot ?? (await getAppSnapshot());
   const userId = await getCurrentUserId(data);
-  return data.profiles.find((profile) => profile.id === userId) ?? data.profiles[0];
+  return data.profiles.find((profile) => profile.id === userId);
 }
 
 export async function hasAccessSession() {
   const sessionProfile = await getSessionProfile();
-  if (sessionProfile) return true;
-
-  return Boolean(await getDevelopmentCurrentUserId());
+  return Boolean(sessionProfile);
 }
 
 export async function getDashboardData() {
@@ -207,7 +194,7 @@ export async function getDashboardData() {
       fallbackAdminManual: true,
     },
     isDemoMode: !isDatabaseConfigured(),
-    isResultsApiConfigured: providerName !== "mock",
+    isResultsApiConfigured: providerName !== "mock" && providerName !== "unconfigured",
   };
 }
 
@@ -339,7 +326,7 @@ export async function syncResultsProviderAction(
   options?: ResultsSyncOptions,
 ): Promise<ActionResult<ResultsSyncSummary>> {
   const providerName = getResultsProviderName();
-  if (providerName === "mock") {
+  if (providerName === "mock" || providerName === "unconfigured") {
     return {
       ok: false,
       message: "API de resultados não configurada.",

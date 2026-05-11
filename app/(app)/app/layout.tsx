@@ -13,6 +13,9 @@ export default async function PrivateLayout({
   }
 
   const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    redirect("/entrar");
+  }
 
   return (
     <AppShell userName={currentUser.fullName} userRole={currentUser.role}>
