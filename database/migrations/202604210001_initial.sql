@@ -14,7 +14,7 @@ create table if not exists profiles (
   id text primary key,
   user_id text not null unique references users(id) on delete cascade,
   full_name text not null,
-  role text not null check (role in ('admin', 'member')),
+  role text not null check (role in ('owner', 'admin', 'member')),
   created_at timestamptz not null default timezone('utc', now())
 );
 
@@ -39,7 +39,7 @@ create table if not exists memberships (
   id text primary key,
   user_id text not null references profiles(id) on delete cascade,
   competition_id text not null references competitions(id) on delete cascade,
-  role text not null check (role in ('admin', 'member')),
+  role text not null check (role in ('owner', 'admin', 'member')),
   joined_at timestamptz not null default timezone('utc', now()),
   unique (user_id, competition_id)
 );
@@ -49,7 +49,7 @@ create table if not exists signup_requests (
   full_name text not null,
   email text not null,
   token text not null,
-  role text not null check (role in ('admin', 'member')),
+  role text not null check (role in ('owner', 'admin', 'member')),
   status text not null check (status in ('pending', 'approved', 'rejected')),
   requested_at timestamptz not null default timezone('utc', now()),
   reviewed_at timestamptz,

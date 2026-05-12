@@ -9,9 +9,10 @@ import {
   removeMember,
   removeSignupRequest,
   reviewSignupRequest,
+  updateMemberRole,
 } from "@/app/actions";
 import { SubmitButton } from "@/components/forms/submit-button";
-import type { ActionResult } from "@/lib/domain/types";
+import type { ActionResult, UserRole } from "@/lib/domain/types";
 
 const initialState: ActionResult = { ok: false, message: "" };
 
@@ -123,6 +124,42 @@ export function RemoveMemberButton({
         aria-label="Remover membro"
       >
         <UserMinus className="h-4 w-4" />
+      </SubmitButton>
+    </form>
+  );
+}
+
+export function MemberRoleSelect({
+  userId,
+  role,
+  disabled,
+}: {
+  userId: string;
+  role: Extract<UserRole, "admin" | "member">;
+  disabled?: boolean;
+}) {
+  const [state, formAction] = useActionState(updateMemberRole, initialState);
+  useToastState(state);
+
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <select
+        name="role"
+        defaultValue={role}
+        disabled={disabled}
+        className="h-9 rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] px-3 text-sm text-[color:var(--text-strong)] outline-none transition focus:border-[color:var(--accent-soft)] focus:ring-2 focus:ring-[color:var(--accent-soft)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <option value="member">member</option>
+        <option value="admin">admin</option>
+      </select>
+      <SubmitButton
+        variant="secondary"
+        size="sm"
+        pendingLabel="Salvando..."
+        disabled={disabled}
+      >
+        Salvar
       </SubmitButton>
     </form>
   );

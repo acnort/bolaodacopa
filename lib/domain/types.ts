@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "member";
+export type UserRole = "owner" | "admin" | "member";
 export type SignupRequestStatus = "pending" | "approved" | "rejected";
 export type MatchStatus = "scheduled" | "in_progress" | "completed";
 export type ScoreSourceType = "match" | "placement";

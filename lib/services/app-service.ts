@@ -12,6 +12,7 @@ import type {
   PhaseRuleInput,
   Profile,
   SyncedMatchInput,
+  UserRole,
 } from "@/lib/domain/types";
 import {
   isDatabaseConfigured,
@@ -27,6 +28,7 @@ import {
   removeMemberDemo,
   removeSignupRequestDemo,
   reviewSignupRequestDemo,
+  updateMemberRoleDemo,
   savePhasePredictionsDemo,
   saveMatchPredictionDemo,
   saveOfficialResultDemo,
@@ -46,6 +48,7 @@ import {
   removeMemberPostgres,
   removeSignupRequestPostgres,
   reviewSignupRequestPostgres,
+  updateMemberRolePostgres,
   saveMatchPredictionPostgres,
   saveOfficialResultPostgres,
   savePhasePredictionsPostgres,
@@ -123,7 +126,14 @@ async function requireActionProfile(snapshot?: AppSnapshot) {
 
 async function requireAdminProfile(snapshot?: AppSnapshot) {
   const profile = await requireActionProfile(snapshot);
-  return profile?.role === "admin" ? profile : undefined;
+  return profile?.role === "admin" || profile?.role === "owner"
+    ? profile
+    : undefined;
+}
+
+async function requireOwnerProfile(snapshot?: AppSnapshot) {
+  const profile = await requireActionProfile(snapshot);
+  return profile?.role === "owner" ? profile : undefined;
 }
 
 function unauthorizedResult<T = unknown>(): ActionResult<T> {
@@ -137,6 +147,13 @@ function forbiddenResult<T = unknown>(): ActionResult<T> {
   return {
     ok: false,
     message: "Apenas administradores podem executar esta ação.",
+  };
+}
+
+function ownerOnlyResult<T = unknown>(): ActionResult<T> {
+  return {
+    ok: false,
+    message: "Apenas owners podem executar esta ação.",
   };
 }
 
@@ -857,6 +874,20 @@ export async function removeMemberAction(
   return isDatabaseConfigured()
     ? removeMemberPostgres(userId, admin.id)
     : removeMemberDemo(userId, admin.id);
+}
+
+export async function updateMemberRoleAction(
+  formData: FormData,
+): Promise<ActionResult<{ updatedId: string; role: UserRole }>> {
+  const owner = await requireOwnerProfile();
+  if (!owner) return ownerOnlyResult();
+
+  const userId = String(formData.get("userId") ?? "");
+  const role = String(formData.get("role") ?? "") as UserRole;
+
+  return isDatabaseConfigured()
+    ? updateMemberRolePostgres(userId, role)
+    : updateMemberRoleDemo(userId, role);
 }
 
 export async function getPhaseRuleStatus(phaseId: string) {

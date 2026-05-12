@@ -99,6 +99,11 @@ export const memberRemovalSchema = z.object({
   userId: z.string().min(1),
 });
 
+export const memberRoleUpdateSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["admin", "member"]),
+});
+
 export const signupRequestReviewSchema = z.object({
   requestId: z.string().min(1),
   action: z.enum(["approve", "reject"]),

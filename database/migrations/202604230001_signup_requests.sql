@@ -3,7 +3,7 @@ create table if not exists signup_requests (
   full_name text not null,
   email text not null,
   token text not null,
-  role text not null check (role in ('admin', 'member')),
+  role text not null check (role in ('owner', 'admin', 'member')),
   status text not null check (status in ('pending', 'approved', 'rejected')),
   requested_at timestamptz not null default timezone('utc', now()),
   reviewed_at timestamptz,

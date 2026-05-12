@@ -6,7 +6,7 @@ export default async function AdminMembersPage() {
   const snapshot = await getAppSnapshot();
   const currentUser = await getCurrentUser(snapshot);
 
-  if (currentUser?.role !== "admin") {
+  if (currentUser?.role !== "admin" && currentUser?.role !== "owner") {
     return (
       <Card>
         <CardHeader>
@@ -20,6 +20,7 @@ export default async function AdminMembersPage() {
     <AdminMembersManager
       snapshot={snapshot}
       currentUserId={currentUser.id}
+      currentUserRole={currentUser.role}
       appUrl={process.env.APP_URL}
     />
   );

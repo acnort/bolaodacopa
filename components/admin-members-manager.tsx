@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   ApproveSignupRequestButton,
   CreateAccessInviteButton,
+  MemberRoleSelect,
   RejectSignupRequestButton,
   RemoveSignupRequestButton,
   RemoveMemberButton,
@@ -23,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AppSnapshot } from "@/lib/domain/types";
+import type { AppSnapshot, UserRole } from "@/lib/domain/types";
 import { formatDate } from "@/lib/formatters";
 
 function getStatusVariant(status: "pending" | "approved" | "rejected") {
@@ -35,10 +36,12 @@ function getStatusVariant(status: "pending" | "approved" | "rejected") {
 export function AdminMembersManager({
   snapshot,
   currentUserId,
+  currentUserRole,
   appUrl,
 }: {
   snapshot: AppSnapshot;
   currentUserId: string;
+  currentUserRole: UserRole;
   appUrl?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -50,6 +53,7 @@ export function AdminMembersManager({
     if (!accessToken) return "";
     return `${origin}/convite/${accessToken}`;
   }, [accessToken, origin]);
+  const canManageRoles = currentUserRole === "owner";
 
   async function copyAccessLink() {
     if (!accessLink) return;
@@ -102,6 +106,7 @@ export function AdminMembersManager({
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Perfil</TableHead>
+                  <TableHead className="w-[220px]">Alterar perfil</TableHead>
                   <TableHead className="w-[96px]" />
                 </TableRow>
               </TableHeader>
@@ -111,10 +116,23 @@ export function AdminMembersManager({
                     <TableCell className="font-semibold">{profile.fullName}</TableCell>
                     <TableCell>{profile.email}</TableCell>
                     <TableCell>{profile.role}</TableCell>
+                    <TableCell>
+                      {profile.role === "owner" ? (
+                        <span className="text-sm text-[color:var(--text-muted)]">
+                          Owner via script
+                        </span>
+                      ) : (
+                        <MemberRoleSelect
+                          userId={profile.id}
+                          role={profile.role}
+                          disabled={!canManageRoles}
+                        />
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <RemoveMemberButton
                         userId={profile.id}
-                        disabled={profile.id === currentUserId || profile.role === "admin"}
+                        disabled={profile.id === currentUserId || profile.role !== "member"}
                       />
                     </TableCell>
                   </TableRow>

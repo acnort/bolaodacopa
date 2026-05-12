@@ -14,6 +14,7 @@ import {
   type SignupRequestInput,
   type SignupRequestReviewInput,
   type SyncedMatchInput,
+  type UserRole,
 } from "@/lib/domain/types";
 
 const state = {
@@ -329,8 +330,8 @@ export function removeMemberDemo(
     return { ok: false, message: "Membro nao encontrado." };
   }
 
-  if (profile.role === "admin") {
-    return { ok: false, message: "Administradores nao podem remover outros administradores." };
+  if (profile.role !== "member") {
+    return { ok: false, message: "Apenas membros comuns podem ser removidos." };
   }
 
   state.snapshot.profiles = state.snapshot.profiles.filter(
@@ -355,6 +356,36 @@ export function removeMemberDemo(
     ok: true,
     message: "Membro removido.",
     data: { removedId: userId },
+  };
+}
+
+export function updateMemberRoleDemo(
+  userId: string,
+  role: UserRole,
+): ActionResult<{ updatedId: string; role: UserRole }> {
+  if (role !== "admin" && role !== "member") {
+    return { ok: false, message: "Perfil inválido." };
+  }
+
+  const profile = state.snapshot.profiles.find((item) => item.id === userId);
+
+  if (!profile) {
+    return { ok: false, message: "Membro nao encontrado." };
+  }
+
+  if (profile.role === "owner") {
+    return { ok: false, message: "Owners só podem ser alterados por script." };
+  }
+
+  profile.role = role;
+  state.snapshot.memberships = state.snapshot.memberships.map((membership) =>
+    membership.userId === userId ? { ...membership, role } : membership,
+  );
+
+  return {
+    ok: true,
+    message: "Perfil atualizado.",
+    data: { updatedId: userId, role },
   };
 }
 

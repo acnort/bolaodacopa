@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { accessSetupSchema, authSchema, matchPredictionSchema, memberRemovalSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
+import { accessSetupSchema, authSchema, matchPredictionSchema, memberRemovalSchema, memberRoleUpdateSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
 import type { ActionResult } from "@/lib/domain/types";
 import {
   removeMemberAction as removeMemberInternal,
@@ -21,6 +21,7 @@ import {
   createSignupRequestAction as createSignupRequestInternal,
   createAccessInviteAction as createAccessInviteInternal,
   setupAccessAction as setupAccessInternal,
+  updateMemberRoleAction as updateMemberRoleInternal,
 } from "@/lib/services/app-service";
 
 function toErrorResult(error: unknown): ActionResult {
@@ -384,6 +385,25 @@ export async function removeMember(
     revalidatePath("/app");
     revalidatePath("/app/admin/membros");
     revalidatePath("/app/ranking");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function updateMemberRole(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    memberRoleUpdateSchema.parse({
+      userId: formData.get("userId"),
+      role: formData.get("role"),
+    });
+
+    const result = await updateMemberRoleInternal(formData);
+    revalidatePath("/app");
+    revalidatePath("/app/admin/membros");
     return result;
   } catch (error) {
     return toErrorResult(error);

@@ -19,6 +19,7 @@ import type {
   SignupRequestReviewInput,
   SyncedMatchInput,
   Team,
+  UserRole,
 } from "@/lib/domain/types";
 import { getDatabasePool } from "@/lib/services/database/pool";
 import { hashPassword } from "@/lib/services/passwords";
@@ -708,7 +709,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       id: string;
       full_name: string;
       email: string;
-      role: "admin" | "member";
+      role: UserRole;
       created_at: string;
     }>(
       `
@@ -723,7 +724,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       full_name: string;
       email: string;
       token: string;
-      role: "admin" | "member";
+      role: UserRole;
       status: "pending" | "approved" | "rejected";
       requested_at: string;
       reviewed_at: string | null;
@@ -763,7 +764,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       id: string;
       user_id: string;
       competition_id: string;
-      role: "admin" | "member";
+      role: UserRole;
       joined_at: string;
     }>(
       `
@@ -1407,8 +1408,8 @@ export async function removeMemberPostgres(
     return { ok: false, message: "Membro nao encontrado." };
   }
 
-  if (profile.rows[0]!.role === "admin") {
-    return { ok: false, message: "Administradores nao podem remover outros administradores." };
+  if (profile.rows[0]!.role !== "member") {
+    return { ok: false, message: "Apenas membros comuns podem ser removidos." };
   }
 
   await requiredPool().query("delete from users where id = $1", [
@@ -1419,6 +1420,54 @@ export async function removeMemberPostgres(
     ok: true,
     message: "Membro removido.",
     data: { removedId: userId },
+  };
+}
+
+export async function updateMemberRolePostgres(
+  userId: string,
+  role: UserRole,
+): Promise<ActionResult<{ updatedId: string; role: UserRole }>> {
+  await ensureDatabaseSeeded();
+
+  if (role !== "admin" && role !== "member") {
+    return { ok: false, message: "Perfil inválido." };
+  }
+
+  const profile = await requiredPool().query<{ role: UserRole }>(
+    "select role from profiles where id = $1 limit 1",
+    [userId],
+  );
+
+  if (!profile.rowCount) {
+    return { ok: false, message: "Membro nao encontrado." };
+  }
+
+  if (profile.rows[0]!.role === "owner") {
+    return { ok: false, message: "Owners só podem ser alterados por script." };
+  }
+
+  await requiredPool().query(
+    `
+      update profiles
+      set role = $2
+      where id = $1
+    `,
+    [userId, role],
+  );
+
+  await requiredPool().query(
+    `
+      update memberships
+      set role = $2
+      where user_id = $1
+    `,
+    [userId, role],
+  );
+
+  return {
+    ok: true,
+    message: "Perfil atualizado.",
+    data: { updatedId: userId, role },
   };
 }
 
@@ -1677,7 +1726,7 @@ export async function reviewSignupRequestPostgres(
       id: string;
       full_name: string;
       email: string;
-      role: "admin" | "member";
+      role: UserRole;
       status: "pending" | "approved" | "rejected";
     }>(
       `

@@ -184,7 +184,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [optimisticPath, setOptimisticPath] = useOptimistic(pathname);
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "owner";
   const currentPath = optimisticPath;
 
   return (

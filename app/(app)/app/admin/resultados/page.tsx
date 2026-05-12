@@ -6,7 +6,7 @@ export default async function AdminResultsPage() {
   const snapshot = await getAppSnapshot();
   const currentUser = await getCurrentUser(snapshot);
 
-  if (currentUser?.role !== "admin") {
+  if (currentUser?.role !== "admin" && currentUser?.role !== "owner") {
     return (
       <Card>
         <CardHeader>
