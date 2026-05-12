@@ -112,6 +112,10 @@ export function RankingView({ snapshot }: { snapshot: AppSnapshot }) {
 
                           return {
                             matchId: prediction.matchId,
+                            phaseId: match?.phaseId ?? "",
+                            phaseName:
+                              phases.find((phase) => phase.id === match?.phaseId)?.name ??
+                              "Sem fase",
                             homeTeam: getTeamName(
                               activeSnapshot.teams,
                               match?.homeTeamId,
