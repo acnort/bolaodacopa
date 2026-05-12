@@ -1,3 +1,9 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { toast } from "sonner";
+
 import {
   ApproveSignupRequestButton,
   CreateAccessInviteButton,
@@ -6,6 +12,7 @@ import {
   RemoveMemberButton,
 } from "@/components/forms/remove-access-buttons";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,13 +35,30 @@ function getStatusVariant(status: "pending" | "approved" | "rejected") {
 export function AdminMembersManager({
   snapshot,
   currentUserId,
+  appUrl,
 }: {
   snapshot: AppSnapshot;
   currentUserId: string;
+  appUrl?: string;
 }) {
-  const accessLink = snapshot.accessInvites[0]
-    ? `/convite/${snapshot.accessInvites[0].token}`
-    : "Nenhum link ativo";
+  const [copied, setCopied] = useState(false);
+  const accessToken = snapshot.accessInvites[0]?.token;
+  const origin =
+    appUrl?.replace(/\/$/, "") ??
+    (typeof window === "undefined" ? "" : window.location.origin);
+  const accessLink = useMemo(() => {
+    if (!accessToken) return "";
+    return `${origin}/convite/${accessToken}`;
+  }, [accessToken, origin]);
+
+  async function copyAccessLink() {
+    if (!accessLink) return;
+
+    await navigator.clipboard.writeText(accessLink);
+    setCopied(true);
+    toast.success("Link copiado.");
+    window.setTimeout(() => setCopied(false), 1800);
+  }
 
   return (
     <div className="space-y-6">
@@ -44,7 +68,22 @@ export function AdminMembersManager({
             <CardTitle>Link de acesso</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Input value={accessLink} readOnly />
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                value={accessLink || "Nenhum link ativo"}
+                readOnly
+                className="font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={copyAccessLink}
+                disabled={!accessLink}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copiado" : "Copiar"}
+              </Button>
+            </div>
             <p className="text-sm text-[color:var(--text-muted)]">
               Envie este link para convidados criarem email e senha. O mesmo link pode ser usado por várias pessoas.
             </p>
@@ -75,7 +114,7 @@ export function AdminMembersManager({
                     <TableCell className="text-right">
                       <RemoveMemberButton
                         userId={profile.id}
-                        disabled={profile.id === currentUserId}
+                        disabled={profile.id === currentUserId || profile.role === "admin"}
                       />
                     </TableCell>
                   </TableRow>

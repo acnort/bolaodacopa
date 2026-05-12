@@ -1398,13 +1398,17 @@ export async function removeMemberPostgres(
     return { ok: false, message: "Voce nao pode remover sua propria conta." };
   }
 
-  const profile = await requiredPool().query<{ user_id: string }>(
-    "select user_id from profiles where id = $1 limit 1",
+  const profile = await requiredPool().query<{ user_id: string; role: string }>(
+    "select user_id, role from profiles where id = $1 limit 1",
     [userId],
   );
 
   if (!profile.rowCount) {
     return { ok: false, message: "Membro nao encontrado." };
+  }
+
+  if (profile.rows[0]!.role === "admin") {
+    return { ok: false, message: "Administradores nao podem remover outros administradores." };
   }
 
   await requiredPool().query("delete from users where id = $1", [

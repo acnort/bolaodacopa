@@ -4,19 +4,75 @@ import { startTransition, useOptimistic } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListChecks, LogOut, Medal, Menu, Shield } from "lucide-react";
+import {
+  ClipboardList,
+  FlaskConical,
+  ListChecks,
+  LogOut,
+  Medal,
+  Menu,
+  Shield,
+  SlidersHorizontal,
+  Trophy,
+  Users,
+} from "lucide-react";
 
 import { signOut } from "@/app/actions";
+import { SandboxToggle } from "@/components/sandbox-toggle";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
-function getLinks(isAdmin: boolean) {
+type NavigationLeaf = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type NavigationGroup = {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavigationLeaf[];
+};
+
+type NavigationItem = NavigationLeaf | NavigationGroup;
+
+function isNavigationGroup(item: NavigationItem): item is NavigationGroup {
+  return "items" in item;
+}
+
+function getLinks(isAdmin: boolean): NavigationItem[] {
   return [
     { href: "/app", label: "Ranking", icon: Medal },
-    { href: "/app/palpites", label: "Jogos", icon: ListChecks },
-    ...(isAdmin ? [{ href: "/app/admin", label: "Admin", icon: Shield }] : []),
+    {
+      label: "Jogos",
+      icon: ListChecks,
+      items: [
+        { href: "/app/palpites", label: "Meus palpites", icon: ClipboardList },
+        { href: "/app/resultados", label: "Resultados", icon: Trophy },
+      ],
+    },
+    ...(isAdmin
+      ? [
+          {
+            label: "Admin",
+            icon: Shield,
+            items: [
+              { href: "/app/admin/regras", label: "Regras", icon: SlidersHorizontal },
+              { href: "/app/admin/resultados", label: "Resultados", icon: Trophy },
+              { href: "/app/admin/membros", label: "Membros", icon: Users },
+              { href: "/app/admin/sandbox", label: "Sandbox", icon: FlaskConical },
+            ],
+          },
+        ]
+      : []),
   ];
+}
+
+function isLinkActive(currentPath: string, href: string) {
+  return href === "/app"
+    ? currentPath === "/app"
+    : currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
 function NavigationLinks({
@@ -30,18 +86,65 @@ function NavigationLinks({
 }) {
   return (
     <nav className="flex flex-col gap-2">
-      {getLinks(isAdmin).map(({ href, label, icon: Icon }) => {
-        const active =
-          href === "/app"
-            ? currentPath === "/app"
-            : currentPath === href || currentPath.startsWith(`${href}/`);
+      {getLinks(isAdmin).map((link) => {
+        const Icon = link.icon;
+
+        if (isNavigationGroup(link)) {
+          const groupActive = link.items.some((item) =>
+            isLinkActive(currentPath, item.href),
+          );
+
+          return (
+            <div key={link.label} className="space-y-1">
+              <div
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold",
+                  groupActive
+                    ? "text-[color:var(--text-strong)]"
+                    : "text-[color:var(--text-muted)]",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{link.label}</span>
+              </div>
+              <div className="ml-5 space-y-1 border-l border-[color:var(--border-subtle)] pl-3">
+                {link.items.map((item) => {
+                  const ItemIcon = item.icon;
+                  const active = isLinkActive(currentPath, item.href);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => {
+                        if (!onNavigate) return;
+                        startTransition(() => onNavigate(item.href));
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                        active
+                          ? "bg-[color:var(--accent-strong)] text-white"
+                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text-strong)]",
+                      )}
+                    >
+                      <ItemIcon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const active = isLinkActive(currentPath, link.href);
         return (
           <Link
-            key={href}
-            href={href}
+            key={link.href}
+            href={link.href}
             onClick={() => {
               if (!onNavigate) return;
-              startTransition(() => onNavigate(href));
+              startTransition(() => onNavigate(link.href));
             }}
             className={cn(
               "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition",
@@ -51,7 +154,7 @@ function NavigationLinks({
             )}
           >
             <Icon className="h-4 w-4" />
-            <span>{label}</span>
+            <span>{link.label}</span>
           </Link>
         );
       })}
@@ -107,6 +210,7 @@ export function AppShell({
             />
           </div>
           <div className="space-y-3">
+            {isAdmin ? <SandboxToggle /> : null}
             <p className="truncate px-3 text-sm font-semibold text-[color:var(--text-strong)]">
               {userName}
             </p>
@@ -131,7 +235,8 @@ export function AppShell({
                 isAdmin={isAdmin}
                 onNavigate={setOptimisticPath}
               />
-              <div className="mt-3">
+              <div className="mt-3 space-y-3">
+                {isAdmin ? <SandboxToggle /> : null}
                 <SignOutForm />
               </div>
             </DrawerContent>

@@ -1,10 +1,13 @@
+"use client";
+
 import { RankingRowPredictionsDialog } from "@/components/ranking-row-predictions-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getSortedPhases, getTeamName } from "@/lib/domain/selectors";
 import { buildLeaderboard, buildScoreEntries } from "@/lib/domain/scoring";
-import { getAppSnapshot } from "@/lib/services/app-service";
+import type { AppSnapshot } from "@/lib/domain/types";
+import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -49,21 +52,29 @@ function RulePill({
   );
 }
 
-export async function RankingView() {
-  const snapshot = await getAppSnapshot();
-  const leaderboard = buildLeaderboard(snapshot);
-  const latestScores = buildScoreEntries(snapshot).slice(-8).reverse();
-  const completedMatchIds = new Set(snapshot.results.map((result) => result.matchId));
-  const phases = getSortedPhases(snapshot.phases);
+export function RankingView({ snapshot }: { snapshot: AppSnapshot }) {
+  const sandboxSnapshot = useSandboxSnapshot();
+  const activeSnapshot = sandboxSnapshot ?? snapshot;
+  const isSandbox = Boolean(sandboxSnapshot);
+  const leaderboard = buildLeaderboard(activeSnapshot);
+  const latestScores = buildScoreEntries(activeSnapshot).slice(-8).reverse();
+  const completedMatchIds = new Set(
+    activeSnapshot.results.map((result) => result.matchId),
+  );
+  const phases = getSortedPhases(activeSnapshot.phases);
   const phaseRules = phases
     .map((phase) => ({
       phase,
-      rule: snapshot.rules.find((item) => item.phaseId === phase.id),
+      rule: activeSnapshot.rules.find((item) => item.phaseId === phase.id),
     }))
     .filter((item) => item.rule);
 
   return (
     <div className="space-y-6">
+      {isSandbox ? (
+        <Badge variant="accent">Sandbox ativo: ranking simulado</Badge>
+      ) : null}
+
       <div className="grid gap-12 xl:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <Card>
@@ -85,24 +96,30 @@ export async function RankingView() {
                   </TableHeader>
                   <TableBody>
                     {leaderboard.map((entry) => {
-                      const completedPredictions = snapshot.matchPredictions
+                      const completedPredictions = activeSnapshot.matchPredictions
                         .filter(
                           (prediction) =>
                             prediction.userId === entry.userId &&
                             completedMatchIds.has(prediction.matchId),
                         )
                         .map((prediction) => {
-                          const match = snapshot.matches.find(
+                          const match = activeSnapshot.matches.find(
                             (item) => item.id === prediction.matchId,
                           );
-                          const result = snapshot.results.find(
+                          const result = activeSnapshot.results.find(
                             (item) => item.matchId === prediction.matchId,
                           );
 
                           return {
                             matchId: prediction.matchId,
-                            homeTeam: getTeamName(snapshot.teams, match?.homeTeamId),
-                            awayTeam: getTeamName(snapshot.teams, match?.awayTeamId),
+                            homeTeam: getTeamName(
+                              activeSnapshot.teams,
+                              match?.homeTeamId,
+                            ),
+                            awayTeam: getTeamName(
+                              activeSnapshot.teams,
+                              match?.awayTeamId,
+                            ),
                             predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
                             officialScore: result
                               ? `${result.homeScore} x ${result.awayScore}`

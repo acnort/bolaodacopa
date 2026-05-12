@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { savePhaseRule } from "@/app/actions";
+import { BrazilianDateTimeInput } from "@/components/forms/br-datetime-input";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
@@ -51,20 +52,18 @@ export function PhaseRuleForm({
           <label className="text-sm font-medium text-[color:var(--text-strong)]">
             Abertura
           </label>
-          <Input
+          <BrazilianDateTimeInput
             name="opensAt"
-            type="datetime-local"
-            defaultValue={rule.opensAt.slice(0, 16)}
+            defaultValue={rule.opensAt}
           />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[color:var(--text-strong)]">
             Fechamento
           </label>
-          <Input
+          <BrazilianDateTimeInput
             name="closesAt"
-            type="datetime-local"
-            defaultValue={rule.closesAt.slice(0, 16)}
+            defaultValue={rule.closesAt}
           />
         </div>
       </div>

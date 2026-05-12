@@ -161,7 +161,7 @@ export async function createSignupRequest(
 
     const result = await createSignupRequestInternal(formData);
     revalidatePath("/cadastro");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/membros");
     return result;
   } catch (error) {
     return toErrorResult(error);
@@ -185,7 +185,7 @@ export async function setupAccess(
     revalidatePath("/");
     revalidatePath("/entrar");
     revalidatePath("/app");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/membros");
     return result;
   } catch (error) {
     return toErrorResult(error);
@@ -194,7 +194,7 @@ export async function setupAccess(
 
 export async function createAccessInvite() {
   const result = await createAccessInviteInternal();
-  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/membros");
   return result;
 }
 
@@ -209,7 +209,7 @@ export async function reviewSignupRequest(
     });
 
     const result = await reviewSignupRequestInternal(formData);
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/membros");
     revalidatePath("/cadastro");
     return result;
   } catch (error) {
@@ -231,7 +231,8 @@ export async function savePlacementResult(
 
     const result = await savePlacementResultInternal(formData);
     revalidatePath("/app");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/resultados");
+    revalidatePath("/app/resultados");
     revalidatePath("/app/ranking");
     return result;
   } catch (error) {
@@ -261,7 +262,7 @@ export async function savePhaseRule(
 
     const result = await savePhaseRuleInternal(formData);
     revalidatePath("/app");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/regras");
     revalidatePath("/app/palpites");
     revalidatePath("/app/podio");
     return result;
@@ -297,6 +298,7 @@ export async function savePhaseRulesBatch(
 
     revalidatePath("/app");
     revalidatePath("/app/admin");
+    revalidatePath("/app/admin/regras");
     revalidatePath("/app/palpites");
     revalidatePath("/app/ranking");
     return result;
@@ -315,7 +317,7 @@ export async function removeSignupRequest(
     });
 
     const result = await removeSignupRequestInternal(formData);
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/membros");
     return result;
   } catch (error) {
     return toErrorResult(error);
@@ -360,7 +362,8 @@ export async function saveOfficialResult(
 
     const result = await saveOfficialResultInternal(formData);
     revalidatePath("/app");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/resultados");
+    revalidatePath("/app/resultados");
     revalidatePath("/app/ranking");
     return result;
   } catch (error) {
@@ -379,7 +382,7 @@ export async function removeMember(
 
     const result = await removeMemberInternal(formData);
     revalidatePath("/app");
-    revalidatePath("/app/admin");
+    revalidatePath("/app/admin/membros");
     revalidatePath("/app/ranking");
     return result;
   } catch (error) {

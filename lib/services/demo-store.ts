@@ -329,6 +329,10 @@ export function removeMemberDemo(
     return { ok: false, message: "Membro nao encontrado." };
   }
 
+  if (profile.role === "admin") {
+    return { ok: false, message: "Administradores nao podem remover outros administradores." };
+  }
+
   state.snapshot.profiles = state.snapshot.profiles.filter(
     (item) => item.id !== userId,
   );

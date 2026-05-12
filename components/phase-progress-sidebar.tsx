@@ -28,8 +28,10 @@ function getStatusCopy(status: PhaseProgressItem["status"]) {
 
 export function PhaseProgressSidebar({
   items,
+  countLabel = "salvos",
 }: {
   items: PhaseProgressItem[];
+  countLabel?: string;
 }) {
   return (
     <Card className="h-fit">
@@ -61,7 +63,7 @@ export function PhaseProgressSidebar({
                     {item.phaseName}
                   </div>
                   <div className="mt-1 text-sm text-[color:var(--text-muted)]">
-                    {item.savedCount}/{item.totalCount} salvos
+                    {item.savedCount}/{item.totalCount} {countLabel}
                   </div>
                 </div>
                 <Badge variant={status.variant} size="small">

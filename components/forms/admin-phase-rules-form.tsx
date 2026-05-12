@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
 import { savePhaseRulesBatch } from "@/app/actions";
+import { BrazilianDateTimeInput } from "@/components/forms/br-datetime-input";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +14,6 @@ import type { ActionResult, Phase, PredictionRule } from "@/lib/domain/types";
 import { formatPhaseWindow } from "@/lib/formatters";
 
 const initialState: ActionResult = { ok: false, message: "" };
-
-function toDateTimeLocal(value: string) {
-  return value.slice(0, 16);
-}
 
 export function AdminPhaseRulesForm({
   phases,
@@ -75,20 +72,18 @@ export function AdminPhaseRulesForm({
                     <label className="text-sm font-medium text-[color:var(--text-strong)]">
                       Abertura
                     </label>
-                    <Input
+                    <BrazilianDateTimeInput
                       name={`opensAt:${phase.id}`}
-                      type="datetime-local"
-                      defaultValue={toDateTimeLocal(rule.opensAt)}
+                      defaultValue={rule.opensAt}
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-[color:var(--text-strong)]">
                       Fechamento
                     </label>
-                    <Input
+                    <BrazilianDateTimeInput
                       name={`closesAt:${phase.id}`}
-                      type="datetime-local"
-                      defaultValue={toDateTimeLocal(rule.closesAt)}
+                      defaultValue={rule.closesAt}
                     />
                   </div>
                 </div>
