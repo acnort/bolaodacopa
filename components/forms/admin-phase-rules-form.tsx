@@ -144,7 +144,7 @@ export function AdminPhaseRulesForm({
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-[color:var(--text-muted)]">
-                        Resultado
+                        Acertou vencedor
                       </label>
                       <Input
                         name={`correctOutcome:${phase.id}`}

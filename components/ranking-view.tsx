@@ -49,16 +49,16 @@ function RulePill({
 }) {
   return (
     <span
-      className={`inline-flex items-center overflow-hidden rounded-md border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] text-xs ${
+      className={`inline-flex items-center overflow-hidden rounded-md border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] text-[11px] ${
         tone === "accent"
           ? "text-[color:var(--accent-strong)]"
           : "text-[color:var(--text-muted)]"
       }`}
     >
-      <span className="px-2 py-1 font-medium tracking-normal normal-case">
+      <span className="px-2 py-1 font-medium leading-tight tracking-normal normal-case">
         {label}
       </span>
-      <span className="border-l border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-1 font-bold tracking-normal text-[color:var(--text-strong)]">
+      <span className="border-l border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-1 font-bold leading-tight tracking-normal text-[color:var(--text-strong)]">
         {points} pts
       </span>
     </span>
@@ -110,8 +110,12 @@ export function RankingView({
                     <TableRow>
                       <TableHead>Posição</TableHead>
                       <TableHead>Participante</TableHead>
-                      <TableHead className="text-center">Exatos</TableHead>
-                      <TableHead className="text-center">Resultados</TableHead>
+                      <TableHead className="text-center">
+                        Placar exato
+                      </TableHead>
+                      <TableHead className="text-center">
+                        Acertou vencedor
+                      </TableHead>
                       <TableHead className="text-center font-bold">
                         Pontos
                       </TableHead>
@@ -211,28 +215,34 @@ export function RankingView({
           </Card>
 
           <Card>
-            <CardHeader>
-              <div className="text-lg font-bold">Pontuação</div>
+            <CardHeader className="space-y-2">
+              <div className="text-lg font-bold">Regras</div>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Placar exato vale quando os dois placares batem. Acertou
+                vencedor vale quando o vencedor ou empate está correto, mas o
+                placar não. Se o placar exato bater, vale só Placar exato, sem
+                somar com Acertou vencedor.
+              </p>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
                 {phaseRules.map(({ phase, rule }) => (
                   <div
                     key={phase.id}
                     className="grid gap-3 border-b border-[color:var(--border-subtle)] px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto]"
                   >
-                    <div className="font-semibold text-[color:var(--text-strong)]">
+                    <div className="text-sm font-semibold text-[color:var(--text-strong)]">
                       {phase.name}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {rule?.enableMatchPredictions ? (
                         <>
                           <RulePill
-                            label="Exato"
+                            label="Placar exato"
                             points={rule.scoring.exactScore}
                           />
                           <RulePill
-                            label="Resultado"
+                            label="Acertou vencedor"
                             points={rule.scoring.correctOutcome}
                           />
                         </>
@@ -258,9 +268,13 @@ export function RankingView({
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-[color:var(--text-muted)]">
-                Desempate: mais exatos, depois mais resultados.
-              </p>
+              <div className="space-y-1 text-xs text-[color:var(--text-muted)]">
+                <p>
+                  Não pontua quando nem o placar nem o vencedor/empate forem
+                  acertados.
+                </p>
+                <p>Desempate: Placar exato, depois Acertou vencedor.</p>
+              </div>
             </CardContent>
           </Card>
         </div>

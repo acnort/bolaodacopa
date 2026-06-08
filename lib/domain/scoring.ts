@@ -75,9 +75,9 @@ export function scoreMatchPrediction(
     exactHit,
     outcomeHit,
     description: exactHit
-      ? "Placar Exato"
+      ? "Placar exato"
       : outcomeHit
-        ? "Resultado"
+        ? "Acertou vencedor"
         : "Sem pontos",
   };
 }

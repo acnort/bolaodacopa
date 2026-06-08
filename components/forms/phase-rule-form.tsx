@@ -85,11 +85,11 @@ export function PhaseRuleForm({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Exato</label>
+            <label className="text-sm text-[color:var(--text-muted)]">Placar exato</label>
             <Input name="exactScore" type="number" min={0} defaultValue={rule.scoring.exactScore} />
           </div>
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Vencedor</label>
+            <label className="text-sm text-[color:var(--text-muted)]">Acertou vencedor</label>
             <Input name="correctOutcome" type="number" min={0} defaultValue={rule.scoring.correctOutcome} />
           </div>
         </div>
