@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+import { normalizeAppDateTimeToIso } from "@/lib/app-time";
+
+const appDateTimeSchema = z.string().min(1).transform((value, context) => {
+  const isoValue = normalizeAppDateTimeToIso(value);
+
+  if (!isoValue) {
+    context.addIssue({
+      code: "custom",
+      message: "Data e hora invalidas.",
+    });
+    return z.NEVER;
+  }
+
+  return isoValue;
+});
+
 export const matchPredictionSchema = z.object({
   userId: z.string().min(1),
   matchId: z.string().min(1),
@@ -59,8 +75,8 @@ export const phaseRuleSchema = z.object({
   phaseId: z.string().min(1),
   enableMatchPredictions: z.coerce.boolean(),
   enablePlacementPredictions: z.coerce.boolean(),
-  opensAt: z.string().min(1),
-  closesAt: z.string().min(1),
+  opensAt: appDateTimeSchema,
+  closesAt: appDateTimeSchema,
   exactScore: z.coerce.number().int().min(0).max(100),
   correctOutcome: z.coerce.number().int().min(0).max(100),
   champion: z.coerce.number().int().min(0).max(100),

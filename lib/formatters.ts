@@ -1,4 +1,6 @@
-export const APP_TIME_ZONE = "America/Sao_Paulo";
+import { APP_TIME_ZONE } from "@/lib/app-time";
+
+export { APP_TIME_ZONE };
 
 export function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {

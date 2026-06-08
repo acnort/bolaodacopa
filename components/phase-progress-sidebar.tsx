@@ -1,7 +1,12 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { PhaseCountdownBadge } from "@/components/phase-countdown-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import type { PredictionRule } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
 export type PhaseProgressItem = {
@@ -12,6 +17,7 @@ export type PhaseProgressItem = {
   totalCount: number;
   status: "empty" | "partial" | "complete";
   isSelected: boolean;
+  rule?: PredictionRule;
 };
 
 function getStatusCopy(status: PhaseProgressItem["status"]) {
@@ -33,6 +39,16 @@ export function PhaseProgressSidebar({
   items: PhaseProgressItem[];
   countLabel?: string;
 }) {
+  const hasCountdown = items.some((item) => item.rule);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!hasCountdown) return;
+
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(interval);
+  }, [hasCountdown]);
+
   return (
     <Card className="h-fit">
       <CardHeader>
@@ -65,6 +81,15 @@ export function PhaseProgressSidebar({
                   <div className="mt-1 text-sm text-[color:var(--text-muted)]">
                     {item.savedCount}/{item.totalCount} {countLabel}
                   </div>
+                  {item.rule ? (
+                    <div className="mt-2">
+                      <PhaseCountdownBadge
+                        rule={item.rule}
+                        now={currentTime}
+                        compact
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 <Badge variant={status.variant} size="small">
                   {status.label}

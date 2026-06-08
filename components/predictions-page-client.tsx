@@ -21,6 +21,7 @@ function buildPhaseProgressItems({
   currentUserId,
   matchPredictions,
   placementPrediction,
+  rules,
   selectedPhaseId,
 }: {
   phases: ReturnType<typeof getSortedPhases>;
@@ -28,9 +29,12 @@ function buildPhaseProgressItems({
   currentUserId: string;
   matchPredictions: AppSnapshot["matchPredictions"];
   placementPrediction: ReturnType<typeof getPlacementPrediction>;
+  rules: AppSnapshot["rules"];
   selectedPhaseId: string;
 }): PhaseProgressItem[] {
   return phases.map((phase) => {
+    const phaseRule = rules.find((rule) => rule.phaseId === phase.id);
+
     if (phase.id === "phase-podium") {
       const savedCount = [
         placementPrediction?.championTeamId,
@@ -52,6 +56,7 @@ function buildPhaseProgressItems({
               ? "complete"
               : "partial",
         isSelected: phase.id === selectedPhaseId,
+        rule: phaseRule,
       };
     }
 
@@ -77,6 +82,7 @@ function buildPhaseProgressItems({
             ? "complete"
             : "partial",
       isSelected: phase.id === selectedPhaseId,
+      rule: phaseRule,
     };
   });
 }
@@ -132,6 +138,7 @@ export function PredictionsPageClient({
     currentUserId,
     matchPredictions: activeSnapshot.matchPredictions,
     placementPrediction,
+    rules: activeSnapshot.rules,
     selectedPhaseId: selectedPhase.id,
   });
 

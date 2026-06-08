@@ -36,10 +36,10 @@ describe("window validation", () => {
 
     expect(phases[0]?.id).toBe("phase-podium");
     expect(podiumRule?.enablePlacementPredictions).toBe(true);
-    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T11:59:58.000Z"))).toBe(
+    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T14:59:58.000Z"))).toBe(
       true,
     );
-    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T12:00:00.000Z"))).toBe(
+    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T15:00:00.000Z"))).toBe(
       false,
     );
   });
