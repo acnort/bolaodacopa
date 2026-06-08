@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { sampleSnapshot } from "@/lib/data/sample-data";
+import { getSortedPhases } from "@/lib/domain/selectors";
 import { isRuleOpen } from "@/lib/domain/scoring";
 import type { PredictionRule } from "@/lib/domain/types";
 
@@ -24,5 +26,21 @@ describe("window validation", () => {
 
     expect(isRuleOpen(rule, new Date("2026-06-05T00:00:00.000Z"))).toBe(true);
     expect(isRuleOpen(rule, new Date("2026-06-11T00:00:00.000Z"))).toBe(false);
+  });
+
+  it("places final podium predictions before match phases", () => {
+    const phases = getSortedPhases(sampleSnapshot.phases);
+    const podiumRule = sampleSnapshot.rules.find(
+      (rule) => rule.phaseId === "phase-podium",
+    );
+
+    expect(phases[0]?.id).toBe("phase-podium");
+    expect(podiumRule?.enablePlacementPredictions).toBe(true);
+    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T11:59:58.000Z"))).toBe(
+      true,
+    );
+    expect(isRuleOpen(podiumRule!, new Date("2026-06-11T12:00:00.000Z"))).toBe(
+      false,
+    );
   });
 });

@@ -3,7 +3,20 @@ import { worldCup2026Teams } from "@/lib/data/world-cup-2026";
 
 export const demoCurrentUserId = "user-ana";
 
-const groupOrder = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
+const groupOrder = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+] as const;
 
 const groupStageVenues = [
   "Cidade do México",
@@ -103,7 +116,10 @@ function buildGroupStageMatches() {
         roundLabel: fixture.roundLabel,
         stageGroup: `Grupo ${group}`,
         kickoffAt: kickoffAt.toISOString(),
-        venue: groupStageVenues[(groupIndex + fixtureIndex) % groupStageVenues.length],
+        venue:
+          groupStageVenues[
+            (groupIndex + fixtureIndex) % groupStageVenues.length
+          ],
         homeTeamId: fixture.homeTeamId,
         awayTeamId: fixture.awayTeamId,
         status:
@@ -203,7 +219,9 @@ function buildQuarterfinalMatches() {
   const venues = ["Chicago", "Boston", "Dallas", "Atlanta"];
 
   return Array.from({ length: 4 }, (_, index) => {
-    const kickoffAt = new Date(baseDate.getTime() + index * 18 * 60 * 60 * 1000);
+    const kickoffAt = new Date(
+      baseDate.getTime() + index * 18 * 60 * 60 * 1000,
+    );
 
     return {
       id: `quarterfinal-${index + 1}`,
@@ -316,9 +334,9 @@ export const sampleSnapshot: AppSnapshot = {
       competitionId: "world-cup-2026",
       slug: "podio-final",
       name: "Pódio final",
-      order: 7,
-      startsAt: "2026-06-11T12:00:00.000Z",
-      endsAt: "2026-07-16T23:59:59.000Z",
+      order: 0,
+      startsAt: "2026-04-01T12:00:00.000Z",
+      endsAt: "2026-06-11T11:59:59.000Z",
     },
   ],
   rules: [
@@ -424,7 +442,7 @@ export const sampleSnapshot: AppSnapshot = {
       enableMatchPredictions: false,
       enablePlacementPredictions: true,
       opensAt: "2026-04-01T12:00:00.000Z",
-      closesAt: "2026-07-16T23:59:59.000Z",
+      closesAt: "2026-06-11T11:59:59.000Z",
       scoring: {
         exactScore: 0,
         correctOutcome: 0,
