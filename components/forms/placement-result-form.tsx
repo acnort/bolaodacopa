@@ -6,13 +6,7 @@ import { toast } from "sonner";
 import { savePlacementResult } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CustomSelect } from "@/components/ui/custom-select";
 import type { ActionResult, PlacementResult, Team } from "@/lib/domain/types";
 
 const initialState: ActionResult = { ok: false, message: "" };
@@ -27,6 +21,11 @@ export function PlacementResultForm({
   defaults: PlacementResult;
 }) {
   const [state, formAction] = useActionState(savePlacementResult, initialState);
+  const teamOptions = teams.map((team) => ({
+    value: team.id,
+    label: team.name,
+    keywords: [team.shortName, team.code],
+  }));
 
   useEffect(() => {
     if (!state.message) return;
@@ -46,18 +45,15 @@ export function PlacementResultForm({
           <label className="text-sm font-medium text-[color:var(--text-strong)]">
             {label}
           </label>
-          <Select defaultValue={defaultValue} name={name}>
-            <SelectTrigger>
-              <SelectValue placeholder={`Selecione ${label.toLowerCase()}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map((team) => (
-                <SelectItem key={team.id} value={team.id}>
-                  {team.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CustomSelect
+            defaultValue={defaultValue}
+            name={name}
+            options={teamOptions}
+            placeholder={`Selecione ${label.toLowerCase()}`}
+            searchPlaceholder="Buscar país"
+            emptyMessage="Nenhum país encontrado."
+            listLabel="Países"
+          />
         </div>
       ))}
 

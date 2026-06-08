@@ -11,14 +11,8 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { TeamFlag } from "@/components/team-flag";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatDateTime, formatSectionDate, getDateKeyInAppTimeZone } from "@/lib/formatters";
 import type { ActionResult, Match, Phase, PlacementPrediction, PredictionRule, Team } from "@/lib/domain/types";
 import { getTeamOrPlaceholder } from "@/lib/domain/selectors";
@@ -187,6 +181,11 @@ export function PhasePredictionsForm({
   const isPlacementPhase = Boolean(rule?.enablePlacementPredictions);
   const hasMatchCards = rule?.enableMatchPredictions && matches.length > 0;
   const sections = buildMatchSections(phase, matches);
+  const teamOptions = teams.map((team) => ({
+    value: team.id,
+    label: team.name,
+    keywords: [team.shortName, team.code],
+  }));
   const [savedSnapshot, setSavedSnapshot] = useState(() => {
     const matchEntries = matches.flatMap((match) => {
       const values = defaultScores[match.id];
@@ -217,6 +216,9 @@ export function PhasePredictionsForm({
 
     const currentSnapshot = serializeRelevantFormData(new FormData(form));
     setIsDirty(currentSnapshot !== savedSnapshot);
+  };
+  const refreshDirtyStateAfterSelect = () => {
+    window.setTimeout(refreshDirtyState, 0);
   };
 
   useEffect(() => {
@@ -290,60 +292,46 @@ export function PhasePredictionsForm({
           <CardContent className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm text-[color:var(--text-muted)]">Campeão</label>
-              <Select
+              <CustomSelect
                 defaultValue={placementPrediction?.championTeamId}
                 name="championTeamId"
+                options={teamOptions}
+                placeholder="Selecionar"
+                searchPlaceholder="Buscar país"
+                emptyMessage="Nenhum país encontrado."
+                listLabel="Países"
                 disabled={disabled}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={refreshDirtyStateAfterSelect}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm text-[color:var(--text-muted)]">Vice</label>
-              <Select
+              <CustomSelect
                 defaultValue={placementPrediction?.runnerUpTeamId}
                 name="runnerUpTeamId"
+                options={teamOptions}
+                placeholder="Selecionar"
+                searchPlaceholder="Buscar país"
+                emptyMessage="Nenhum país encontrado."
+                listLabel="Países"
                 disabled={disabled}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={refreshDirtyStateAfterSelect}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm text-[color:var(--text-muted)]">Terceiro</label>
-              <Select
+              <CustomSelect
                 defaultValue={placementPrediction?.thirdPlaceTeamId}
                 name="thirdPlaceTeamId"
+                options={teamOptions}
+                placeholder="Selecionar"
+                searchPlaceholder="Buscar país"
+                emptyMessage="Nenhum país encontrado."
+                listLabel="Países"
                 disabled={disabled}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                align="end"
+                onValueChange={refreshDirtyStateAfterSelect}
+              />
             </div>
           </CardContent>
         </Card>

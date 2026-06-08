@@ -6,13 +6,7 @@ import { toast } from "sonner";
 import { savePlacementPrediction } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CustomSelect } from "@/components/ui/custom-select";
 import type { ActionResult, Team } from "@/lib/domain/types";
 
 const initialState: ActionResult = { ok: false, message: "" };
@@ -35,6 +29,11 @@ export function PlacementPredictionForm({
   disabled?: boolean;
 }) {
   const [state, formAction] = useActionState(savePlacementPrediction, initialState);
+  const teamOptions = teams.map((team) => ({
+    value: team.id,
+    label: team.name,
+    keywords: [team.shortName, team.code],
+  }));
 
   useEffect(() => {
     if (!state.message) return;
@@ -50,54 +49,48 @@ export function PlacementPredictionForm({
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Campeão
         </label>
-        <Select defaultValue={defaults?.championTeamId} name="championTeamId" disabled={disabled}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o campeão" />
-          </SelectTrigger>
-          <SelectContent>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={team.id}>
-                {team.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CustomSelect
+          defaultValue={defaults?.championTeamId}
+          name="championTeamId"
+          options={teamOptions}
+          placeholder="Selecione o campeão"
+          searchPlaceholder="Buscar país"
+          emptyMessage="Nenhum país encontrado."
+          listLabel="Países"
+          disabled={disabled}
+        />
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Vice-campeão
         </label>
-        <Select defaultValue={defaults?.runnerUpTeamId} name="runnerUpTeamId" disabled={disabled}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o vice" />
-          </SelectTrigger>
-          <SelectContent>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={team.id}>
-                {team.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CustomSelect
+          defaultValue={defaults?.runnerUpTeamId}
+          name="runnerUpTeamId"
+          options={teamOptions}
+          placeholder="Selecione o vice"
+          searchPlaceholder="Buscar país"
+          emptyMessage="Nenhum país encontrado."
+          listLabel="Países"
+          disabled={disabled}
+        />
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium text-[color:var(--text-strong)]">
           Terceiro lugar
         </label>
-        <Select defaultValue={defaults?.thirdPlaceTeamId} name="thirdPlaceTeamId" disabled={disabled}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o terceiro lugar" />
-          </SelectTrigger>
-          <SelectContent>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={team.id}>
-                {team.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CustomSelect
+          defaultValue={defaults?.thirdPlaceTeamId}
+          name="thirdPlaceTeamId"
+          options={teamOptions}
+          placeholder="Selecione o terceiro lugar"
+          searchPlaceholder="Buscar país"
+          emptyMessage="Nenhum país encontrado."
+          listLabel="Países"
+          disabled={disabled}
+        />
       </div>
 
       <FormFeedback field="thirdPlaceTeamId" state={state} />

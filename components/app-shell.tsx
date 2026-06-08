@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useOptimistic } from "react";
+import { startTransition, useOptimistic, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -186,6 +186,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [optimisticPath, setOptimisticPath] = useOptimistic(pathname);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAdmin = userRole === "admin" || userRole === "owner";
   const currentPath = optimisticPath;
 
@@ -221,7 +222,7 @@ export function AppShell({
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-12">
-          <Drawer>
+          <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <DrawerTrigger asChild>
               <Button variant="secondary" size="icon" className="lg:hidden">
                 <Menu className="h-5 w-5" />
@@ -235,7 +236,10 @@ export function AppShell({
               <NavigationLinks
                 currentPath={currentPath}
                 isAdmin={isAdmin}
-                onNavigate={setOptimisticPath}
+                onNavigate={(href) => {
+                  setOptimisticPath(href);
+                  setMobileMenuOpen(false);
+                }}
               />
               <div className="mt-3 space-y-3">
                 {isAdmin ? <SandboxToggle /> : null}
