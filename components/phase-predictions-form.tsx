@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { savePhasePredictionsBatch } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { TeamFlag } from "@/components/team-flag";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -67,6 +68,83 @@ function buildMatchSections(phase: Phase, matches: Match[]) {
     label: formatSectionDate(sectionMatches[0]?.kickoffAt ?? key),
     matches: sectionMatches,
   }));
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}min`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}min`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}min ${seconds}s`;
+  }
+
+  return `${seconds}s`;
+}
+
+function PhaseCountdown({
+  rule,
+  now,
+}: {
+  rule?: PredictionRule;
+  now: Date;
+}) {
+  if (!rule) {
+    return (
+      <Badge variant="neutral" className="normal-case tracking-normal">
+        Sem janela configurada
+      </Badge>
+    );
+  }
+
+  if (rule.status !== "active") {
+    return (
+      <Badge variant="neutral" className="normal-case tracking-normal">
+        Fase fechada
+      </Badge>
+    );
+  }
+
+  const opensAt = new Date(rule.opensAt);
+  const closesAt = new Date(rule.closesAt);
+  const opensInMs = opensAt.getTime() - now.getTime();
+  const closesInMs = closesAt.getTime() - now.getTime();
+
+  if (opensInMs > 0) {
+    return (
+      <Badge variant="accent" className="normal-case tracking-normal">
+        Abre em {formatCountdown(opensInMs)}
+      </Badge>
+    );
+  }
+
+  if (closesInMs <= 0) {
+    return (
+      <Badge variant="danger" className="normal-case tracking-normal">
+        Palpites encerrados
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant={closesInMs <= 24 * 60 * 60 * 1000 ? "warning" : "success"}
+      className="gap-1.5 normal-case tracking-normal"
+    >
+      <Clock3 className="h-3.5 w-3.5" />
+      Restam {formatCountdown(closesInMs)} para palpitar
+    </Badge>
+  );
 }
 
 function MatchCard({
@@ -177,7 +255,12 @@ export function PhasePredictionsForm({
 }) {
   const [state, formAction] = useActionState(savePhasePredictionsBatch, initialState);
   const formRef = useRef<HTMLFormElement>(null);
-  const disabled = !rule || rule.status !== "active" || new Date(rule.closesAt) < new Date();
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const disabled =
+    !rule ||
+    rule.status !== "active" ||
+    new Date(rule.opensAt) > currentTime ||
+    new Date(rule.closesAt) < currentTime;
   const isPlacementPhase = Boolean(rule?.enablePlacementPredictions);
   const hasMatchCards = rule?.enableMatchPredictions && matches.length > 0;
   const sections = buildMatchSections(phase, matches);
@@ -209,6 +292,11 @@ export function PhasePredictionsForm({
       .join("&");
   });
   const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const refreshDirtyState = () => {
     const form = formRef.current;
@@ -248,8 +336,11 @@ export function PhasePredictionsForm({
         <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <div className="text-lg font-bold text-[color:var(--text-muted)]">{phase.name}</div>
-            <div className="text-sm text-[color:var(--text-muted)]">
-              Fecha em {rule ? formatDateTime(rule.closesAt) : "sem regra"}
+            <div className="flex flex-col gap-2 text-sm text-[color:var(--text-muted)] sm:flex-row sm:items-center">
+              <span>
+                Fecha em {rule ? formatDateTime(rule.closesAt) : "sem regra"}
+              </span>
+              <PhaseCountdown rule={rule} now={currentTime} />
             </div>
           </div>
 
