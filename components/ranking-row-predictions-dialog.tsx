@@ -58,7 +58,11 @@ export function RankingRowPredictionsDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Ver palpites de ${displayName}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Ver palpites de ${displayName}`}
+        >
           <Eye className="h-4 w-4" />
           <span className="sr-only">Ver palpites de {displayName}</span>
         </Button>
@@ -66,20 +70,25 @@ export function RankingRowPredictionsDialog({
       <DialogContent className="flex max-h-[85vh] w-[min(94vw,56rem)] flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{displayName}</DialogTitle>
-          <DialogDescription>Somente partidas já encerradas.</DialogDescription>
+          <DialogDescription>
+            Somente partidas já iniciadas e com resultado publicado.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-2">
           {predictions.length === 0 ? (
             <div className="rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
-              Nenhum palpite encerrado.
+              Nenhum palpite liberado.
             </div>
           ) : (
             <div className="space-y-5">
               {groupedPredictions.map((group) => (
-                <section key={group.phaseId || group.phaseName} className="space-y-2">
+                <section
+                  key={group.phaseId || group.phaseName}
+                  className="space-y-2"
+                >
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    <h3 className="text-sm font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
                       {group.phaseName}
                     </h3>
                     <Badge variant="neutral" size="small">
@@ -106,7 +115,9 @@ export function RankingRowPredictionsDialog({
                               <span className="font-medium">
                                 {prediction.homeTeam}
                               </span>{" "}
-                              <span className="text-[color:var(--text-muted)]">x</span>{" "}
+                              <span className="text-[color:var(--text-muted)]">
+                                x
+                              </span>{" "}
                               <span className="font-medium">
                                 {prediction.awayTeam}
                               </span>

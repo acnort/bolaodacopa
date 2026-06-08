@@ -22,6 +22,30 @@ export function isRuleOpen(rule: PredictionRule, now = new Date()) {
   return opensAt <= now && now <= closesAt && rule.status === "active";
 }
 
+function isPastDate(value: string | undefined, now: Date) {
+  if (!value) return false;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp <= now.getTime();
+}
+
+export function isMatchResultPublic(
+  match: Pick<Match, "kickoffAt"> | undefined,
+  result: Pick<OfficialResult, "publishedAt"> | undefined,
+  now = new Date(),
+) {
+  return (
+    Boolean(match) &&
+    Boolean(result) &&
+    isPastDate(match?.kickoffAt, now) &&
+    isPastDate(result?.publishedAt, now)
+  );
+}
+
+function isPlacementResultPublic(result: PlacementResult, now: Date) {
+  return isPastDate(result.publishedAt, now);
+}
+
 export function scoreMatchPrediction(
   prediction: MatchPrediction,
   result: OfficialResult,
@@ -136,7 +160,7 @@ export function buildLeaderboardEntries(
     }));
 }
 
-export function buildScoreEntries(snapshot: AppSnapshot) {
+export function buildScoreEntries(snapshot: AppSnapshot, now = new Date()) {
   const resultsByMatch = new Map(
     snapshot.results.map((result) => [result.matchId, result]),
   );
@@ -151,7 +175,7 @@ export function buildScoreEntries(snapshot: AppSnapshot) {
   for (const prediction of snapshot.matchPredictions) {
     const result = resultsByMatch.get(prediction.matchId);
     const match = matchesById.get(prediction.matchId);
-    if (!result || !match) continue;
+    if (!match || !result || !isMatchResultPublic(match, result, now)) continue;
     const rule = rulesByPhase.get(match.phaseId);
     if (!rule) continue;
     entries.push(scoreMatchPrediction(prediction, result, rule));
@@ -161,7 +185,7 @@ export function buildScoreEntries(snapshot: AppSnapshot) {
     snapshot.rules.find((rule) => rule.enablePlacementPredictions) ??
     snapshot.rules[snapshot.rules.length - 1];
 
-  if (placementRule) {
+  if (placementRule && isPlacementResultPublic(snapshot.placementResult, now)) {
     for (const prediction of snapshot.placementPredictions) {
       entries.push(
         scorePlacementPrediction(
@@ -176,7 +200,7 @@ export function buildScoreEntries(snapshot: AppSnapshot) {
   return entries;
 }
 
-export function buildLeaderboard(snapshot: AppSnapshot) {
+export function buildLeaderboard(snapshot: AppSnapshot, now = new Date()) {
   const approvedUserIds = new Set(
     snapshot.memberships.map((membership) => membership.userId),
   );
@@ -184,7 +208,10 @@ export function buildLeaderboard(snapshot: AppSnapshot) {
     approvedUserIds.has(profile.id),
   );
 
-  return buildLeaderboardEntries(approvedProfiles, buildScoreEntries(snapshot));
+  return buildLeaderboardEntries(
+    approvedProfiles,
+    buildScoreEntries(snapshot, now),
+  );
 }
 
 export function getPhaseRuleForMatch(match: Match, rules: PredictionRule[]) {
