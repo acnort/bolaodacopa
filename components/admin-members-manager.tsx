@@ -12,7 +12,6 @@ import {
   RemoveSignupRequestButton,
   RemoveMemberButton,
 } from "@/components/forms/remove-access-buttons";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,12 +25,6 @@ import {
 } from "@/components/ui/table";
 import type { AppSnapshot, UserRole } from "@/lib/domain/types";
 import { formatDate } from "@/lib/formatters";
-
-function getStatusVariant(status: "pending" | "approved" | "rejected") {
-  if (status === "approved") return "success";
-  if (status === "pending") return "warning";
-  return "danger";
-}
 
 export function AdminMembersManager({
   snapshot,
@@ -54,6 +47,16 @@ export function AdminMembersManager({
     return `${origin}/convite/${accessToken}`;
   }, [accessToken, origin]);
   const canManageRoles = currentUserRole === "owner";
+  const approvedProfiles = snapshot.memberships
+    .map((membership) =>
+      snapshot.profiles.find((profile) => profile.id === membership.userId),
+    )
+    .filter((profile): profile is NonNullable<typeof profile> =>
+      Boolean(profile),
+    );
+  const pendingRequests = snapshot.signupRequests.filter(
+    (request) => request.status === "pending",
+  );
 
   async function copyAccessLink() {
     if (!accessLink) return;
@@ -84,12 +87,17 @@ export function AdminMembersManager({
                 onClick={copyAccessLink}
                 disabled={!accessLink}
               >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
                 {copied ? "Copiado" : "Copiar"}
               </Button>
             </div>
             <p className="text-sm text-[color:var(--text-muted)]">
-              Envie este link para convidados criarem email e senha. O mesmo link pode ser usado por várias pessoas.
+              Envie este link para convidados solicitarem acesso. O mesmo link
+              pode ser usado por várias pessoas.
             </p>
             <CreateAccessInviteButton />
           </CardContent>
@@ -111,9 +119,11 @@ export function AdminMembersManager({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {snapshot.profiles.map((profile) => (
+                {approvedProfiles.map((profile) => (
                   <TableRow key={profile.id}>
-                    <TableCell className="font-semibold">{profile.fullName}</TableCell>
+                    <TableCell className="font-semibold">
+                      {profile.fullName}
+                    </TableCell>
                     <TableCell>{profile.email}</TableCell>
                     <TableCell>{profile.role}</TableCell>
                     <TableCell>
@@ -132,7 +142,10 @@ export function AdminMembersManager({
                     <TableCell className="text-right">
                       <RemoveMemberButton
                         userId={profile.id}
-                        disabled={profile.id === currentUserId || profile.role !== "member"}
+                        disabled={
+                          profile.id === currentUserId ||
+                          profile.role !== "member"
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -145,7 +158,7 @@ export function AdminMembersManager({
 
       <Card>
         <CardHeader>
-          <CardTitle>Acessos criados pelo link</CardTitle>
+          <CardTitle>Cadastros pendentes</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
@@ -153,42 +166,37 @@ export function AdminMembersManager({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Pedido</TableHead>
-                <TableHead>Análise</TableHead>
                 <TableHead className="w-[140px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {snapshot.signupRequests.map((request) => (
+              {pendingRequests.map((request) => (
                 <TableRow key={request.id}>
-                  <TableCell className="font-semibold">{request.fullName}</TableCell>
-                  <TableCell>{request.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(request.status)}>{request.status}</Badge>
+                  <TableCell className="font-semibold">
+                    {request.fullName}
                   </TableCell>
+                  <TableCell>{request.email}</TableCell>
                   <TableCell>{formatDate(request.requestedAt)}</TableCell>
                   <TableCell>
-                    {request.reviewedAt ? formatDate(request.reviewedAt) : "Pendente"}
-                  </TableCell>
-                  <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <ApproveSignupRequestButton
-                        requestId={request.id}
-                        disabled={request.status !== "pending"}
-                      />
-                      <RejectSignupRequestButton
-                        requestId={request.id}
-                        disabled={request.status !== "pending"}
-                      />
-                      <RemoveSignupRequestButton
-                        requestId={request.id}
-                        disabled={request.status === "approved"}
-                      />
+                      <ApproveSignupRequestButton requestId={request.id} />
+                      <RejectSignupRequestButton requestId={request.id} />
+                      <RemoveSignupRequestButton requestId={request.id} />
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {!pendingRequests.length ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-8 text-center text-sm text-[color:var(--text-muted)]"
+                  >
+                    Nenhum cadastro pendente.
+                  </TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </CardContent>

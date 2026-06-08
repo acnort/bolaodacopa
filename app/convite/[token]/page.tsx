@@ -56,10 +56,11 @@ export default async function InvitePage({
             {isActive ? "convite ativo" : "convite revogado"}
           </Badge>
           <CardTitle className="pt-3">
-            {isActive ? "Crie seu acesso" : "Este link não está disponível"}
+            {isActive ? "Solicite seu acesso" : "Este link não está disponível"}
           </CardTitle>
           <CardDescription>
-            Defina email e senha para entrar no bolão.
+            Defina email e senha. O admin precisa aprovar seu cadastro antes do
+            acesso ao bolão.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

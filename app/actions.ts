@@ -3,12 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { accessSetupSchema, authSchema, matchPredictionSchema, memberRemovalSchema, memberRoleUpdateSchema, officialResultSchema, phaseRuleSchema, phaseRulesBatchSchema, placementPredictionSchema, placementResultSchema, signupRequestRemovalSchema, signupRequestReviewSchema, signupRequestSchema } from "@/lib/domain/schemas";
+import {
+  accessSetupSchema,
+  authSchema,
+  matchPredictionSchema,
+  memberRemovalSchema,
+  memberRoleUpdateSchema,
+  officialResultSchema,
+  phaseRuleSchema,
+  phaseRulesBatchSchema,
+  placementPredictionSchema,
+  placementResultSchema,
+  signupRequestRemovalSchema,
+  signupRequestReviewSchema,
+  signupRequestSchema,
+} from "@/lib/domain/schemas";
 import type { ActionResult } from "@/lib/domain/types";
 import {
   removeMemberAction as removeMemberInternal,
   removeSignupRequestAction as removeSignupRequestInternal,
   reviewSignupRequestAction as reviewSignupRequestInternal,
+  clearOfficialResultsAction as clearOfficialResultsInternal,
   savePhasePredictionsBatchAction as savePhasePredictionsBatchInternal,
   saveMatchPredictionAction as saveMatchPredictionInternal,
   saveOfficialResultAction as saveOfficialResultInternal,
@@ -96,7 +111,9 @@ export async function savePhasePredictionsBatch(
 
     const championTeamId = String(formData.get("championTeamId") ?? "").trim();
     const runnerUpTeamId = String(formData.get("runnerUpTeamId") ?? "").trim();
-    const thirdPlaceTeamId = String(formData.get("thirdPlaceTeamId") ?? "").trim();
+    const thirdPlaceTeamId = String(
+      formData.get("thirdPlaceTeamId") ?? "",
+    ).trim();
     const competitionId = String(formData.get("competitionId") ?? "").trim();
 
     const result = await savePhasePredictionsBatchInternal({
@@ -370,6 +387,19 @@ export async function saveOfficialResult(
   } catch (error) {
     return toErrorResult(error);
   }
+}
+
+export async function clearOfficialResults(
+  _prevState: ActionResult | undefined,
+) {
+  void _prevState;
+
+  const result = await clearOfficialResultsInternal();
+  revalidatePath("/app");
+  revalidatePath("/app/admin/resultados");
+  revalidatePath("/app/resultados");
+  revalidatePath("/app/ranking");
+  return result;
 }
 
 export async function removeMember(

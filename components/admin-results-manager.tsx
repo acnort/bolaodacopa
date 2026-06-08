@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ClearResultsDialog } from "@/components/forms/clear-results-dialog";
 import { OfficialResultForm } from "@/components/forms/official-result-form";
 import { PlacementResultForm } from "@/components/forms/placement-result-form";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +19,7 @@ import type { AppSnapshot } from "@/lib/domain/types";
 import { getSortedPhases, getTeamName } from "@/lib/domain/selectors";
 import { formatDateTime } from "@/lib/formatters";
 
-export function AdminResultsManager({
-  snapshot,
-}: {
-  snapshot: AppSnapshot;
-}) {
+export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
   const phases = getSortedPhases(snapshot.phases);
   const [phaseId, setPhaseId] = useState("all");
   const [status, setStatus] = useState("all");
@@ -48,7 +45,14 @@ export function AdminResultsManager({
 
       return matchesPhase && matchesStatus && matchesQuery;
     });
-  }, [phaseId, query, snapshot.matches, snapshot.results, snapshot.teams, status]);
+  }, [
+    phaseId,
+    query,
+    snapshot.matches,
+    snapshot.results,
+    snapshot.teams,
+    status,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -78,8 +82,10 @@ export function AdminResultsManager({
                 : "não publicado"}
             </div>
             <div>
-              Resultados publicados: {snapshot.results.length}/{snapshot.matches.length}
+              Resultados publicados: {snapshot.results.length}/
+              {snapshot.matches.length}
             </div>
+            <ClearResultsDialog disabled={snapshot.results.length === 0} />
           </CardContent>
         </Card>
       </section>
@@ -122,7 +128,9 @@ export function AdminResultsManager({
 
           <div className="grid gap-4 xl:grid-cols-2">
             {filteredMatches.map((match) => {
-              const result = snapshot.results.find((item) => item.matchId === match.id);
+              const result = snapshot.results.find(
+                (item) => item.matchId === match.id,
+              );
               const homeTeam = getTeamName(snapshot.teams, match.homeTeamId);
               const awayTeam = getTeamName(snapshot.teams, match.awayTeamId);
 

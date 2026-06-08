@@ -137,9 +137,15 @@ export function buildLeaderboardEntries(
 }
 
 export function buildScoreEntries(snapshot: AppSnapshot) {
-  const resultsByMatch = new Map(snapshot.results.map((result) => [result.matchId, result]));
-  const matchesById = new Map(snapshot.matches.map((match) => [match.id, match]));
-  const rulesByPhase = new Map(snapshot.rules.map((rule) => [rule.phaseId, rule]));
+  const resultsByMatch = new Map(
+    snapshot.results.map((result) => [result.matchId, result]),
+  );
+  const matchesById = new Map(
+    snapshot.matches.map((match) => [match.id, match]),
+  );
+  const rulesByPhase = new Map(
+    snapshot.rules.map((rule) => [rule.phaseId, rule]),
+  );
   const entries: ScoreEntry[] = [];
 
   for (const prediction of snapshot.matchPredictions) {
@@ -171,7 +177,14 @@ export function buildScoreEntries(snapshot: AppSnapshot) {
 }
 
 export function buildLeaderboard(snapshot: AppSnapshot) {
-  return buildLeaderboardEntries(snapshot.profiles, buildScoreEntries(snapshot));
+  const approvedUserIds = new Set(
+    snapshot.memberships.map((membership) => membership.userId),
+  );
+  const approvedProfiles = snapshot.profiles.filter((profile) =>
+    approvedUserIds.has(profile.id),
+  );
+
+  return buildLeaderboardEntries(approvedProfiles, buildScoreEntries(snapshot));
 }
 
 export function getPhaseRuleForMatch(match: Match, rules: PredictionRule[]) {
@@ -183,5 +196,7 @@ export function findProfileDisplayName(
   userId: string,
   fallback = "Participante",
 ) {
-  return profiles.find((profile) => profile.id === userId)?.fullName ?? fallback;
+  return (
+    profiles.find((profile) => profile.id === userId)?.fullName ?? fallback
+  );
 }

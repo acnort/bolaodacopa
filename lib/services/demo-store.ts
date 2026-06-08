@@ -3,6 +3,7 @@ import "server-only";
 import { demoCurrentUserId, sampleSnapshot } from "@/lib/data/sample-data";
 import {
   type AccessSetupInput,
+  type AccessSetupResult,
   type ActionResult,
   type AppSnapshot,
   type MatchPredictionInput,
@@ -74,7 +75,11 @@ export function saveMatchPredictionDemo(
     updatedAt: nowIso(),
   });
 
-  return { ok: true, message: "Palpite de jogo salvo.", data: { updatedId: id } };
+  return {
+    ok: true,
+    message: "Palpite de jogo salvo.",
+    data: { updatedId: id },
+  };
 }
 
 export function savePhasePredictionsDemo(
@@ -116,7 +121,9 @@ export function savePhasePredictionsDemo(
   return {
     ok: true,
     message:
-      updatedCount > 0 ? "Palpites da fase salvos." : "Nenhuma alteração enviada.",
+      updatedCount > 0
+        ? "Palpites da fase salvos."
+        : "Nenhuma alteração enviada.",
     data: { updatedCount },
   };
 }
@@ -159,14 +166,18 @@ export function savePlacementPredictionDemo(
 export function saveOfficialResultDemo(
   input: OfficialResultInput,
 ): ActionResult<{ updatedId: string }> {
-  const match = state.snapshot.matches.find((item) => item.id === input.matchId);
+  const match = state.snapshot.matches.find(
+    (item) => item.id === input.matchId,
+  );
   if (!match) {
     return { ok: false, message: "Partida nao encontrada." };
   }
 
   match.status = input.status;
 
-  const existing = state.snapshot.results.find((item) => item.matchId === input.matchId);
+  const existing = state.snapshot.results.find(
+    (item) => item.matchId === input.matchId,
+  );
   if (existing) {
     existing.homeScore = input.homeScore;
     existing.awayScore = input.awayScore;
@@ -192,6 +203,26 @@ export function saveOfficialResultDemo(
   };
 }
 
+export function clearOfficialResultsDemo(): ActionResult<{
+  removedResults: number;
+}> {
+  const resultMatchIds = new Set(
+    state.snapshot.results.map((result) => result.matchId),
+  );
+  const removedResults = state.snapshot.results.length;
+
+  state.snapshot.results = [];
+  state.snapshot.matches = state.snapshot.matches.map((match) =>
+    resultMatchIds.has(match.id) ? { ...match, status: "scheduled" } : match,
+  );
+
+  return {
+    ok: true,
+    message: "Resultados oficiais removidos.",
+    data: { removedResults },
+  };
+}
+
 export function syncMatchesDemo(
   inputs: SyncedMatchInput[],
 ): ActionResult<{ updatedMatches: number; updatedResults: number }> {
@@ -199,7 +230,9 @@ export function syncMatchesDemo(
   let updatedResults = 0;
 
   for (const input of inputs) {
-    const match = state.snapshot.matches.find((item) => item.id === input.matchId);
+    const match = state.snapshot.matches.find(
+      (item) => item.id === input.matchId,
+    );
     if (!match) continue;
 
     match.externalMatchId = input.externalMatchId;
@@ -267,7 +300,9 @@ export function savePlacementResultDemo(
 export function savePhaseRuleDemo(
   input: PhaseRuleInput,
 ): ActionResult<{ updatedId: string }> {
-  const existing = state.snapshot.rules.find((item) => item.phaseId === input.phaseId);
+  const existing = state.snapshot.rules.find(
+    (item) => item.phaseId === input.phaseId,
+  );
   if (!existing) {
     return { ok: false, message: "Regra da fase nao encontrada." };
   }
@@ -295,16 +330,22 @@ export function savePhaseRuleDemo(
 export function removeSignupRequestDemo(
   requestId: string,
 ): ActionResult<{ removedId: string }> {
-  const request = state.snapshot.signupRequests.find((item) => item.id === requestId);
+  const request = state.snapshot.signupRequests.find(
+    (item) => item.id === requestId,
+  );
 
   if (!request) {
     return { ok: false, message: "Solicitação não encontrada." };
   }
 
   if (request.status === "approved") {
-    return { ok: false, message: "Cadastros aprovados não podem ser removidos." };
+    return {
+      ok: false,
+      message: "Cadastros aprovados não podem ser removidos.",
+    };
   }
 
+  removePendingProfileByEmail(request.email);
   state.snapshot.signupRequests = state.snapshot.signupRequests.filter(
     (item) => item.id !== requestId,
   );
@@ -314,6 +355,25 @@ export function removeSignupRequestDemo(
     message: "Solicitação removida.",
     data: { removedId: requestId },
   };
+}
+
+function removePendingProfileByEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const profile = state.snapshot.profiles.find(
+    (item) => item.email.toLowerCase() === normalizedEmail,
+  );
+
+  if (!profile) return;
+
+  const membership = state.snapshot.memberships.find(
+    (item) => item.userId === profile.id,
+  );
+  if (membership) return;
+
+  state.snapshot.profiles = state.snapshot.profiles.filter(
+    (item) => item.id !== profile.id,
+  );
+  state.passwordHashes.delete(profile.id);
 }
 
 export function removeMemberDemo(
@@ -343,9 +403,10 @@ export function removeMemberDemo(
   state.snapshot.matchPredictions = state.snapshot.matchPredictions.filter(
     (item) => item.userId !== userId,
   );
-  state.snapshot.placementPredictions = state.snapshot.placementPredictions.filter(
-    (item) => item.userId !== userId,
-  );
+  state.snapshot.placementPredictions =
+    state.snapshot.placementPredictions.filter(
+      (item) => item.userId !== userId,
+    );
   state.snapshot.signupRequests = state.snapshot.signupRequests.map((item) =>
     item.approvedUserId === userId
       ? { ...item, approvedUserId: undefined }
@@ -402,7 +463,9 @@ export function createSignupRequestDemo(
   }
 
   const existingRequest = state.snapshot.signupRequests.find(
-    (item) => item.email.toLowerCase() === normalizedEmail && item.status !== "rejected",
+    (item) =>
+      item.email.toLowerCase() === normalizedEmail &&
+      item.status !== "rejected",
   );
 
   if (existingRequest) {
@@ -450,6 +513,7 @@ export function reviewSignupRequestDemo(
 
   if (input.action === "reject") {
     request.status = "rejected";
+    removePendingProfileByEmail(request.email);
     return {
       ok: true,
       message: "Cadastro recusado.",
@@ -461,26 +525,35 @@ export function reviewSignupRequestDemo(
     (item) => item.email.toLowerCase() === request.email.toLowerCase(),
   );
 
-  if (existingProfile) {
+  const existingMembership = existingProfile
+    ? state.snapshot.memberships.find(
+        (item) => item.userId === existingProfile.id,
+      )
+    : undefined;
+
+  if (existingMembership) {
     return { ok: false, message: "Este email já foi aprovado no bolão." };
   }
 
-  const userId = nextId("user");
+  const userId = existingProfile?.id ?? nextId("user");
   request.status = "approved";
   request.approvedUserId = userId;
 
-  state.snapshot.profiles.push({
-    id: userId,
-    fullName: request.fullName,
-    email: request.email,
-    role: request.role,
-    createdAt: nowIso(),
-  });
+  if (!existingProfile) {
+    state.snapshot.profiles.push({
+      id: userId,
+      fullName: request.fullName,
+      email: request.email,
+      role: "member",
+      createdAt: nowIso(),
+    });
+  }
+
   state.snapshot.memberships.push({
     id: nextId("membership"),
     userId,
     competitionId: state.snapshot.competition.id,
-    role: request.role,
+    role: "member",
     joinedAt: nowIso(),
   });
 
@@ -501,7 +574,8 @@ export function getPasswordHashByEmailDemo(email: string) {
 
 export function activateSignupRequestDemo(
   input: AccessSetupInput,
-): ActionResult<{ userId: string; email: string }> {
+): ActionResult<AccessSetupResult> {
+  const normalizedEmail = input.email.trim().toLowerCase();
   const invite = state.snapshot.accessInvites.find(
     (item) => item.token === input.token && !item.revokedAt,
   );
@@ -514,6 +588,19 @@ export function activateSignupRequestDemo(
     (item) => item.email.toLowerCase() === input.email.trim().toLowerCase(),
   );
 
+  const existingMembership = existingProfile
+    ? state.snapshot.memberships.find(
+        (item) => item.userId === existingProfile.id,
+      )
+    : undefined;
+
+  if (existingProfile && !existingMembership) {
+    return {
+      ok: false,
+      message: "Já existe uma solicitação aberta para este email.",
+    };
+  }
+
   if (existingProfile && state.passwordHashes.has(existingProfile.id)) {
     return { ok: false, message: "Este email já tem acesso ao bolão." };
   }
@@ -523,13 +610,29 @@ export function activateSignupRequestDemo(
     return {
       ok: true,
       message: "Senha definida.",
-      data: { userId: existingProfile.id, email: existingProfile.email },
+      data: {
+        userId: existingProfile.id,
+        email: existingProfile.email,
+        requiresApproval: false,
+      },
+    };
+  }
+
+  const existingRequest = state.snapshot.signupRequests.find(
+    (item) =>
+      item.email.toLowerCase() === normalizedEmail &&
+      (item.status === "pending" || item.status === "approved"),
+  );
+
+  if (existingRequest) {
+    return {
+      ok: false,
+      message: "Já existe uma solicitação aberta ou aprovada para este email.",
     };
   }
 
   const userId = nextId("user");
   const timestamp = nowIso();
-  const normalizedEmail = input.email.trim().toLowerCase();
 
   state.snapshot.profiles.push({
     id: userId,
@@ -538,30 +641,21 @@ export function activateSignupRequestDemo(
     role: "member",
     createdAt: timestamp,
   });
-  state.snapshot.memberships.push({
-    id: nextId("membership"),
-    userId,
-    competitionId: state.snapshot.competition.id,
-    role: "member",
-    joinedAt: timestamp,
-  });
   state.snapshot.signupRequests.unshift({
     id: nextId("signup-request"),
     fullName: input.fullName,
     email: normalizedEmail,
     token: input.token,
     role: "member",
-    status: "approved",
+    status: "pending",
     requestedAt: timestamp,
-    reviewedAt: timestamp,
-    approvedUserId: userId,
   });
   state.passwordHashes.set(userId, input.passwordHash);
 
   return {
     ok: true,
-    message: "Acesso ativado.",
-    data: { userId, email: normalizedEmail },
+    message: "Cadastro enviado. Agora é só aguardar a aprovação.",
+    data: { userId, email: normalizedEmail, requiresApproval: true },
   };
 }
 

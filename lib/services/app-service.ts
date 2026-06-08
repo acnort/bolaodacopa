@@ -3,7 +3,11 @@ import "server-only";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 
-import { buildLeaderboard, buildScoreEntries, isRuleOpen } from "@/lib/domain/scoring";
+import {
+  buildLeaderboard,
+  buildScoreEntries,
+  isRuleOpen,
+} from "@/lib/domain/scoring";
 import type {
   ActionResult,
   AppSnapshot,
@@ -20,6 +24,7 @@ import {
 } from "@/lib/services/database/shared";
 import {
   activateSignupRequestDemo,
+  clearOfficialResultsDemo,
   createAccessInviteDemo,
   createSignupRequestDemo,
   getProviderSyncStateDemo,
@@ -40,6 +45,7 @@ import {
 } from "@/lib/services/demo-store";
 import {
   activateAccessInvitePostgres,
+  clearOfficialResultsPostgres,
   createAccessInvitePostgres,
   createSignupRequestPostgres,
   getProviderSyncStatePostgres,
@@ -95,6 +101,12 @@ function getSessionSecret() {
     : undefined;
 }
 
+function hasApprovedMembership(snapshot: AppSnapshot, userId: string) {
+  return snapshot.memberships.some(
+    (membership) => membership.userId === userId,
+  );
+}
+
 async function getSessionProfile(snapshot?: AppSnapshot) {
   const secret = getSessionSecret();
   if (!secret) return undefined;
@@ -108,10 +120,16 @@ async function getSessionProfile(snapshot?: AppSnapshot) {
   if (!session) return undefined;
 
   const data = snapshot ?? (await getAppSnapshot());
+  if (!hasApprovedMembership(data, session.userId)) {
+    return undefined;
+  }
+
   return data.profiles.find((profile) => profile.id === session.userId);
 }
 
-async function getActionProfile(snapshot?: AppSnapshot): Promise<Profile | undefined> {
+async function getActionProfile(
+  snapshot?: AppSnapshot,
+): Promise<Profile | undefined> {
   const data = snapshot ?? (await getAppSnapshot());
   const sessionProfile = await getSessionProfile(data);
   return sessionProfile;
@@ -186,7 +204,9 @@ export async function getDashboardData() {
   const currentUserId = await getCurrentUserId(snapshot);
   const providerName = getResultsProviderName();
   const leaderboard = buildLeaderboard(snapshot);
-  const currentUser = snapshot.profiles.find((profile) => profile.id === currentUserId);
+  const currentUser = snapshot.profiles.find(
+    (profile) => profile.id === currentUserId,
+  );
   const upcomingMatches = snapshot.matches
     .filter((match) => match.status === "scheduled")
     .sort(
@@ -200,7 +220,9 @@ export async function getDashboardData() {
     leaderboard,
     scoreEntries: buildScoreEntries(snapshot),
     currentUser,
-    currentStanding: leaderboard.find((entry) => entry.userId === currentUserId),
+    currentStanding: leaderboard.find(
+      (entry) => entry.userId === currentUserId,
+    ),
     upcomingMatches,
     providerStatus: {
       syncedAt: new Date().toISOString(),
@@ -211,7 +233,8 @@ export async function getDashboardData() {
       fallbackAdminManual: true,
     },
     isDemoMode: !isDatabaseConfigured(),
-    isResultsApiConfigured: providerName !== "mock" && providerName !== "unconfigured",
+    isResultsApiConfigured:
+      providerName !== "mock" && providerName !== "unconfigured",
   };
 }
 
@@ -224,7 +247,8 @@ function findMatchingInternalMatch(
   const byExternalId = internalMatches.find(
     (match) =>
       !usedMatchIds.has(match.id) &&
-      (match.externalMatchId === externalMatchId || match.id === externalMatchId),
+      (match.externalMatchId === externalMatchId ||
+        match.id === externalMatchId),
   );
 
   if (byExternalId) return byExternalId;
@@ -238,7 +262,7 @@ function findMatchingInternalMatch(
       !usedMatchIds.has(match.id) &&
       match.phaseId === externalMatch.phaseId &&
       match.homeTeamId === externalMatch.homeTeamId &&
-    match.awayTeamId === externalMatch.awayTeamId,
+      match.awayTeamId === externalMatch.awayTeamId,
   );
 }
 
@@ -313,7 +337,10 @@ function canUseProviderCallBudget(externalCalls: number) {
     (timestamp) => now - timestamp < PROVIDER_RATE_LIMIT_WINDOW_MS,
   );
 
-  return providerCallTimestamps.length + externalCalls <= PROVIDER_RATE_LIMIT_MAX_CALLS;
+  return (
+    providerCallTimestamps.length + externalCalls <=
+    PROVIDER_RATE_LIMIT_MAX_CALLS
+  );
 }
 
 function recordProviderCalls(externalCalls: number) {
@@ -599,7 +626,10 @@ export async function savePhasePredictionsBatchAction(
 
     for (const prediction of input.predictions) {
       if (!phaseMatchIds.has(prediction.matchId)) {
-        return { ok: false, message: "Existe um palpite fora da fase selecionada." };
+        return {
+          ok: false,
+          message: "Existe um palpite fora da fase selecionada.",
+        };
       }
     }
   }
@@ -646,7 +676,9 @@ export async function setupAccessAction(
 ): Promise<ActionResult<{ redirectTo: string }>> {
   const token = String(formData.get("token") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
   const passwordHash = await hashPassword(password);
 
@@ -666,6 +698,14 @@ export async function setupAccessAction(
 
   if (!result.ok || !result.data) {
     return { ok: false, message: result.message };
+  }
+
+  if (result.data.requiresApproval) {
+    return {
+      ok: true,
+      message: result.message,
+      data: { redirectTo: "/entrar" },
+    };
   }
 
   const secret = getSessionSecret();
@@ -714,7 +754,9 @@ export async function reviewSignupRequestAction(
   if (isDatabaseConfigured()) {
     return reviewSignupRequestPostgres({
       requestId: String(formData.get("requestId") ?? ""),
-      action: String(formData.get("action") ?? "approve") as "approve" | "reject",
+      action: String(formData.get("action") ?? "approve") as
+        | "approve"
+        | "reject",
       reviewedByUserId: admin.id,
     });
   }
@@ -753,6 +795,17 @@ export async function saveOfficialResultAction(
       | "in_progress"
       | "completed",
   });
+}
+
+export async function clearOfficialResultsAction(): Promise<
+  ActionResult<{ removedResults: number }>
+> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
+  return isDatabaseConfigured()
+    ? clearOfficialResultsPostgres()
+    : clearOfficialResultsDemo();
 }
 
 export async function savePlacementResultAction(
@@ -837,7 +890,11 @@ export async function savePhaseRulesBatchAction(
       : savePhaseRuleDemo(rule);
 
     if (!result.ok) {
-      return { ok: false, message: result.message, fieldErrors: result.fieldErrors };
+      return {
+        ok: false,
+        message: result.message,
+        fieldErrors: result.fieldErrors,
+      };
     }
 
     updatedCount += 1;
@@ -899,7 +956,9 @@ export async function getPhaseRuleStatus(phaseId: string) {
 export async function signInAction(
   formData: FormData,
 ): Promise<ActionResult<{ redirectTo: string }>> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
@@ -913,6 +972,13 @@ export async function signInAction(
 
   if (!profile) {
     return { ok: false, message: "Email ou senha inválidos." };
+  }
+
+  if (!hasApprovedMembership(snapshot, profile.id)) {
+    return {
+      ok: false,
+      message: "Seu cadastro ainda está aguardando aprovação.",
+    };
   }
 
   const passwordHash = isDatabaseConfigured()
@@ -955,7 +1021,9 @@ export async function signInAction(
   };
 }
 
-export async function signOutAction(): Promise<ActionResult<{ redirectTo: string }>> {
+export async function signOutAction(): Promise<
+  ActionResult<{ redirectTo: string }>
+> {
   const cookieStore = await cookies();
   cookieStore.delete(AUTH_COOKIE_NAME);
 

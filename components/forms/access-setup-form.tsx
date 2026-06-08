@@ -86,9 +86,9 @@ export function AccessSetupForm({ token }: { token: string }) {
 
       <FormFeedback state={state} />
 
-      <SubmitButton className="w-full" pendingLabel="Ativando acesso...">
+      <SubmitButton className="w-full" pendingLabel="Enviando cadastro...">
         <KeyRound className="h-4 w-4" />
-        Ativar acesso
+        Solicitar acesso
       </SubmitButton>
     </form>
   );

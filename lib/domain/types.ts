@@ -251,6 +251,12 @@ export interface AccessSetupInput {
   passwordHash: string;
 }
 
+export interface AccessSetupResult {
+  userId: string;
+  email: string;
+  requiresApproval: boolean;
+}
+
 export interface SignupRequestReviewInput {
   requestId: string;
   action: "approve" | "reject";

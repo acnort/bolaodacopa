@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { sampleSnapshot } from "@/lib/data/sample-data";
 import type {
   AccessSetupInput,
+  AccessSetupResult,
   ActionResult,
   AppSnapshot,
   MatchPredictionInput,
@@ -62,7 +63,11 @@ async function ensureDatabaseSeeded() {
   try {
     await client.query("begin");
 
-    const groupCodes = [...new Set(sampleSnapshot.teams.map((team) => team.group).filter(Boolean))];
+    const groupCodes = [
+      ...new Set(
+        sampleSnapshot.teams.map((team) => team.group).filter(Boolean),
+      ),
+    ];
     const orderedGroupCodes = groupCodes.sort((a, b) => a!.localeCompare(b!));
     const groupIdByCode = new Map<string, string>();
 
@@ -109,7 +114,7 @@ async function ensureDatabaseSeeded() {
         [
           team.id,
           sampleSnapshot.competition.id,
-          team.group ? groupIdByCode.get(team.group) ?? null : null,
+          team.group ? (groupIdByCode.get(team.group) ?? null) : null,
           team.name,
           team.shortName,
           team.code,
@@ -224,7 +229,13 @@ async function ensureDatabaseSeeded() {
             insert into profiles (id, user_id, full_name, role, created_at)
             values ($1, $2, $3, $4, $5)
           `,
-          [profile.id, profile.id, profile.fullName, profile.role, profile.createdAt],
+          [
+            profile.id,
+            profile.id,
+            profile.fullName,
+            profile.role,
+            profile.createdAt,
+          ],
         );
       }
 
@@ -282,7 +293,12 @@ async function ensureDatabaseSeeded() {
             insert into official_results (match_id, home_score, away_score, published_at)
             values ($1, $2, $3, $4)
           `,
-          [result.matchId, result.homeScore, result.awayScore, result.publishedAt],
+          [
+            result.matchId,
+            result.homeScore,
+            result.awayScore,
+            result.publishedAt,
+          ],
         );
       }
 
@@ -359,7 +375,8 @@ async function ensureDatabaseSeeded() {
       }
     }
 
-    const bootstrapAdminEmail = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+    const bootstrapAdminEmail =
+      process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
     const bootstrapAdminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD?.trim();
     const bootstrapAdminName =
       process.env.BOOTSTRAP_ADMIN_NAME?.trim() ?? "Admin";
@@ -373,7 +390,12 @@ async function ensureDatabaseSeeded() {
           values ($1, $2, $3, $4)
           on conflict (email) do nothing
         `,
-        [userId, bootstrapAdminEmail, await hashPassword(bootstrapAdminPassword), createdAt],
+        [
+          userId,
+          bootstrapAdminEmail,
+          await hashPassword(bootstrapAdminPassword),
+          createdAt,
+        ],
       );
 
       await client.query(
@@ -393,13 +415,20 @@ async function ensureDatabaseSeeded() {
           where exists (select 1 from profiles where id = $2)
           on conflict (user_id, competition_id) do nothing
         `,
-        [nextId("membership"), userId, sampleSnapshot.competition.id, createdAt],
+        [
+          nextId("membership"),
+          userId,
+          sampleSnapshot.competition.id,
+          createdAt,
+        ],
       );
     }
 
     const initialInviteToken = process.env.INITIAL_ACCESS_TOKEN?.trim();
     const inviteTokens = [
-      ...(seedDemoData ? sampleSnapshot.accessInvites.map((invite) => invite.token) : []),
+      ...(seedDemoData
+        ? sampleSnapshot.accessInvites.map((invite) => invite.token)
+        : []),
       ...(initialInviteToken ? [initialInviteToken] : []),
     ];
 
@@ -569,7 +598,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       name: string;
       edition: string;
       host: string;
-    }>("select id, name, edition, host from competitions where id = $1 limit 1", [competitionId]),
+    }>(
+      "select id, name, edition, host from competitions where id = $1 limit 1",
+      [competitionId],
+    ),
     pool.query<{
       id: string;
       name: string;
@@ -847,8 +879,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       ? {
           competitionId: placementResult.rows[0].competition_id,
           championTeamId: placementResult.rows[0].champion_team_id ?? undefined,
-          runnerUpTeamId: placementResult.rows[0].runner_up_team_id ?? undefined,
-          thirdPlaceTeamId: placementResult.rows[0].third_place_team_id ?? undefined,
+          runnerUpTeamId:
+            placementResult.rows[0].runner_up_team_id ?? undefined,
+          thirdPlaceTeamId:
+            placementResult.rows[0].third_place_team_id ?? undefined,
           publishedAt: placementResult.rows[0].published_at
             ? new Date(placementResult.rows[0].published_at).toISOString()
             : undefined,
@@ -868,7 +902,9 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       token: row.token,
       createdAt: new Date(row.created_at).toISOString(),
       createdBy: row.created_by ?? undefined,
-      revokedAt: row.revoked_at ? new Date(row.revoked_at).toISOString() : undefined,
+      revokedAt: row.revoked_at
+        ? new Date(row.revoked_at).toISOString()
+        : undefined,
     })),
     signupRequests: signupRequestsResult.rows.map((row) => ({
       id: row.id,
@@ -961,7 +997,9 @@ export async function saveMatchPredictionPostgres(
 
   return {
     ok: true,
-    message: existing.rowCount ? "Palpite de jogo atualizado." : "Palpite de jogo salvo.",
+    message: existing.rowCount
+      ? "Palpite de jogo atualizado."
+      : "Palpite de jogo salvo.",
     data: { updatedId },
   };
 }
@@ -1075,7 +1113,9 @@ export async function savePhasePredictionsPostgres(
     return {
       ok: true,
       message:
-        updatedCount > 0 ? "Palpites da fase salvos." : "Nenhuma alteração enviada.",
+        updatedCount > 0
+          ? "Palpites da fase salvos."
+          : "Nenhuma alteração enviada.",
       data: { updatedCount },
     };
   } catch (error) {
@@ -1136,7 +1176,9 @@ export async function savePlacementPredictionPostgres(
 
   return {
     ok: true,
-    message: existing.rowCount ? "Palpite final atualizado." : "Palpite final salvo.",
+    message: existing.rowCount
+      ? "Palpite final atualizado."
+      : "Palpite final salvo.",
     data: { updatedId: predictionId },
   };
 }
@@ -1175,6 +1217,50 @@ export async function saveOfficialResultPostgres(
       ok: true,
       message: "Resultado oficial salvo.",
       data: { updatedId: input.matchId },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function clearOfficialResultsPostgres(): Promise<
+  ActionResult<{ removedResults: number }>
+> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    const removed = await client.query<{ match_id: string }>(
+      `
+        delete from official_results
+        returning match_id
+      `,
+    );
+    const matchIds = removed.rows.map((row) => row.match_id);
+
+    if (matchIds.length) {
+      await client.query(
+        `
+          update matches
+          set status = 'scheduled'
+          where id = any($1::text[])
+        `,
+        [matchIds],
+      );
+    }
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Resultados oficiais removidos.",
+      data: { removedResults: removed.rowCount ?? 0 },
     };
   } catch (error) {
     await client.query("rollback");
@@ -1367,24 +1453,50 @@ export async function removeSignupRequestPostgres(
 
   const request = await requiredPool().query<{
     id: string;
+    email: string;
     status: "pending" | "approved" | "rejected";
-  }>("select id, status from signup_requests where id = $1 limit 1", [requestId]);
+  }>("select id, email, status from signup_requests where id = $1 limit 1", [
+    requestId,
+  ]);
 
   if (!request.rowCount) {
     return { ok: false, message: "Solicitação não encontrada." };
   }
 
   if (request.rows[0]!.status === "approved") {
-    return { ok: false, message: "Cadastros aprovados não podem ser removidos." };
+    return {
+      ok: false,
+      message: "Cadastros aprovados não podem ser removidos.",
+    };
   }
 
-  await requiredPool().query("delete from signup_requests where id = $1", [requestId]);
+  await requiredPool().query("delete from signup_requests where id = $1", [
+    requestId,
+  ]);
+  await removePendingProfileByEmailPostgres(request.rows[0]!.email);
 
   return {
     ok: true,
     message: "Solicitação removida.",
     data: { removedId: requestId },
   };
+}
+
+async function removePendingProfileByEmailPostgres(email: string) {
+  await requiredPool().query(
+    `
+      delete from users u
+      using profiles p
+      where p.user_id = u.id
+        and lower(u.email) = lower($1)
+        and not exists (
+          select 1
+          from memberships m
+          where m.user_id = p.id
+        )
+    `,
+    [email.trim().toLowerCase()],
+  );
 }
 
 export async function removeMemberPostgres(
@@ -1560,7 +1672,7 @@ export async function getPasswordHashByEmailPostgres(email: string) {
 
 export async function activateAccessInvitePostgres(
   input: AccessSetupInput,
-): Promise<ActionResult<{ userId: string; email: string }>> {
+): Promise<ActionResult<AccessSetupResult>> {
   await ensureDatabaseSeeded();
 
   const normalizedEmail = input.email.trim().toLowerCase();
@@ -1587,11 +1699,14 @@ export async function activateAccessInvitePostgres(
     const existingUser = await client.query<{
       id: string;
       password_hash: string | null;
+      membership_id: string | null;
     }>(
       `
-        select id, password_hash
-        from users
-        where lower(email) = lower($1)
+        select u.id, u.password_hash, m.id as membership_id
+        from users u
+        left join profiles p on p.user_id = u.id
+        left join memberships m on m.user_id = p.id
+        where lower(u.email) = lower($1)
         limit 1
       `,
       [normalizedEmail],
@@ -1599,6 +1714,14 @@ export async function activateAccessInvitePostgres(
 
     const timestamp = nowIso();
     const existing = existingUser.rows[0];
+
+    if (existing && !existing.membership_id) {
+      await client.query("rollback");
+      return {
+        ok: false,
+        message: "Já existe uma solicitação aberta para este email.",
+      };
+    }
 
     if (existing?.password_hash) {
       await client.query("rollback");
@@ -1620,7 +1743,31 @@ export async function activateAccessInvitePostgres(
       return {
         ok: true,
         message: "Senha definida.",
-        data: { userId: existing.id, email: normalizedEmail },
+        data: {
+          userId: existing.id,
+          email: normalizedEmail,
+          requiresApproval: false,
+        },
+      };
+    }
+
+    const existingRequest = await client.query<{ id: string }>(
+      `
+        select id
+        from signup_requests
+        where lower(email) = lower($1)
+          and status in ('pending', 'approved')
+        limit 1
+      `,
+      [normalizedEmail],
+    );
+
+    if (existingRequest.rowCount) {
+      await client.query("rollback");
+      return {
+        ok: false,
+        message:
+          "Já existe uma solicitação aberta ou aprovada para este email.",
       };
     }
 
@@ -1645,14 +1792,6 @@ export async function activateAccessInvitePostgres(
 
     await client.query(
       `
-        insert into memberships (id, user_id, competition_id, role, joined_at)
-        values ($1, $2, $3, $4, $5)
-      `,
-      [nextId("membership"), userId, sampleSnapshot.competition.id, "member", timestamp],
-    );
-
-    await client.query(
-      `
         insert into signup_requests (
           id,
           full_name,
@@ -1660,11 +1799,9 @@ export async function activateAccessInvitePostgres(
           token,
           role,
           status,
-          requested_at,
-          reviewed_at,
-          approved_user_id
+          requested_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $7, $8)
+        values ($1, $2, $3, $4, $5, $6, $7)
       `,
       [
         requestId,
@@ -1672,9 +1809,8 @@ export async function activateAccessInvitePostgres(
         normalizedEmail,
         input.token,
         "member",
-        "approved",
+        "pending",
         timestamp,
-        userId,
       ],
     );
 
@@ -1682,8 +1818,8 @@ export async function activateAccessInvitePostgres(
 
     return {
       ok: true,
-      message: "Acesso ativado.",
-      data: { userId, email: normalizedEmail },
+      message: "Cadastro enviado. Agora é só aguardar a aprovação.",
+      data: { userId, email: normalizedEmail, requiresApproval: true },
     };
   } catch (error) {
     await client.query("rollback");
@@ -1751,7 +1887,8 @@ export async function reviewSignupRequestPostgres(
     }
 
     const timestamp = nowIso();
-    const currentUserId = input.reviewedByUserId ?? (await getPostgresCurrentUser());
+    const currentUserId =
+      input.reviewedByUserId ?? (await getPostgresCurrentUser());
 
     if (input.action === "reject") {
       await client.query(
@@ -1765,6 +1902,20 @@ export async function reviewSignupRequestPostgres(
         `,
         [request.id, timestamp, currentUserId],
       );
+      await client.query(
+        `
+          delete from users u
+          using profiles p
+          where p.user_id = u.id
+            and lower(u.email) = lower($1)
+            and not exists (
+              select 1
+              from memberships m
+              where m.user_id = p.id
+            )
+        `,
+        [request.email],
+      );
 
       await client.query("commit");
 
@@ -1775,38 +1926,47 @@ export async function reviewSignupRequestPostgres(
       };
     }
 
-    const existingUser = await client.query<{ id: string }>(
+    const existingUser = await client.query<{
+      id: string;
+      membership_id: string | null;
+    }>(
       `
-        select id
-        from users
-        where lower(email) = lower($1)
+        select u.id, m.id as membership_id
+        from users u
+        left join profiles p on p.user_id = u.id
+        left join memberships m on m.user_id = p.id
+        where lower(u.email) = lower($1)
         limit 1
       `,
       [request.email],
     );
 
-    if (existingUser.rowCount) {
+    const existing = existingUser.rows[0];
+
+    if (existing?.membership_id) {
       await client.query("rollback");
       return { ok: false, message: "Este email já foi aprovado no bolão." };
     }
 
-    const userId = nextId("user");
+    const userId = existing?.id ?? nextId("user");
 
-    await client.query(
-      `
-        insert into users (id, email, password_hash, created_at)
-        values ($1, $2, $3, $4)
-      `,
-      [userId, request.email, null, timestamp],
-    );
+    if (!existing) {
+      await client.query(
+        `
+          insert into users (id, email, password_hash, created_at)
+          values ($1, $2, $3, $4)
+        `,
+        [userId, request.email, null, timestamp],
+      );
 
-    await client.query(
-      `
-        insert into profiles (id, user_id, full_name, role, created_at)
-        values ($1, $2, $3, $4, $5)
-      `,
-      [userId, userId, request.full_name, request.role, timestamp],
-    );
+      await client.query(
+        `
+          insert into profiles (id, user_id, full_name, role, created_at)
+          values ($1, $2, $3, $4, $5)
+        `,
+        [userId, userId, request.full_name, "member", timestamp],
+      );
+    }
 
     await client.query(
       `
@@ -1817,7 +1977,7 @@ export async function reviewSignupRequestPostgres(
         nextId("membership"),
         userId,
         sampleSnapshot.competition.id,
-        request.role,
+        "member",
         timestamp,
       ],
     );
