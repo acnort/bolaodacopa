@@ -85,7 +85,12 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
               Resultados publicados: {snapshot.results.length}/
               {snapshot.matches.length}
             </div>
-            <ClearResultsDialog disabled={snapshot.results.length === 0} />
+            <ClearResultsDialog
+              disabled={
+                snapshot.results.length === 0 &&
+                !snapshot.placementResult.publishedAt
+              }
+            />
           </CardContent>
         </Card>
       </section>

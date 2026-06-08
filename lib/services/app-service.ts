@@ -798,7 +798,7 @@ export async function saveOfficialResultAction(
 }
 
 export async function clearOfficialResultsAction(): Promise<
-  ActionResult<{ removedResults: number }>
+  ActionResult<{ resetResults: number; resetPlacement: boolean }>
 > {
   const admin = await requireAdminProfile();
   if (!admin) return forbiddenResult();

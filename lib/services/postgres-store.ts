@@ -1227,7 +1227,7 @@ export async function saveOfficialResultPostgres(
 }
 
 export async function clearOfficialResultsPostgres(): Promise<
-  ActionResult<{ removedResults: number }>
+  ActionResult<{ resetResults: number; resetPlacement: boolean }>
 > {
   await ensureDatabaseSeeded();
 
@@ -1236,31 +1236,34 @@ export async function clearOfficialResultsPostgres(): Promise<
   try {
     await client.query("begin");
 
-    const removed = await client.query<{ match_id: string }>(
+    const removed = await client.query(
       `
         delete from official_results
-        returning match_id
       `,
     );
-    const matchIds = removed.rows.map((row) => row.match_id);
+    const placement = await client.query(
+      `
+        delete from placement_results
+      `,
+    );
 
-    if (matchIds.length) {
-      await client.query(
-        `
-          update matches
-          set status = 'scheduled'
-          where id = any($1::text[])
-        `,
-        [matchIds],
-      );
-    }
+    await client.query(
+      `
+        update matches
+        set status = 'scheduled'
+        where status <> 'scheduled'
+      `,
+    );
 
     await client.query("commit");
 
     return {
       ok: true,
-      message: "Resultados oficiais removidos.",
-      data: { removedResults: removed.rowCount ?? 0 },
+      message: "Resultados resetados.",
+      data: {
+        resetResults: removed.rowCount ?? 0,
+        resetPlacement: Boolean(placement.rowCount),
+      },
     };
   } catch (error) {
     await client.query("rollback");

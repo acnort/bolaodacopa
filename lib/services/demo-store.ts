@@ -204,22 +204,24 @@ export function saveOfficialResultDemo(
 }
 
 export function clearOfficialResultsDemo(): ActionResult<{
-  removedResults: number;
+  resetResults: number;
+  resetPlacement: boolean;
 }> {
-  const resultMatchIds = new Set(
-    state.snapshot.results.map((result) => result.matchId),
-  );
-  const removedResults = state.snapshot.results.length;
+  const resetResults = state.snapshot.results.length;
+  const resetPlacement = Boolean(state.snapshot.placementResult.publishedAt);
 
   state.snapshot.results = [];
   state.snapshot.matches = state.snapshot.matches.map((match) =>
-    resultMatchIds.has(match.id) ? { ...match, status: "scheduled" } : match,
+    match.status === "scheduled" ? match : { ...match, status: "scheduled" },
   );
+  state.snapshot.placementResult = {
+    competitionId: state.snapshot.competition.id,
+  };
 
   return {
     ok: true,
-    message: "Resultados oficiais removidos.",
-    data: { removedResults },
+    message: "Resultados resetados.",
+    data: { resetResults, resetPlacement },
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ import type { ActionResult } from "@/lib/domain/types";
 const initialState: ActionResult = { ok: false, message: "" };
 
 export function ClearResultsDialog({ disabled }: { disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState(
     clearOfficialResults,
     initialState,
@@ -29,22 +30,27 @@ export function ClearResultsDialog({ disabled }: { disabled?: boolean }) {
   useEffect(() => {
     if (!state.message) return;
     toast[state.ok ? "success" : "error"](state.message);
+
+    if (state.ok) {
+      const timeout = window.setTimeout(() => setOpen(false), 0);
+      return () => window.clearTimeout(timeout);
+    }
   }, [state]);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" variant="danger" disabled={disabled}>
           <Trash2 className="h-4 w-4" />
-          Limpar resultados
+          Resetar resultados
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Limpar resultados oficiais?</DialogTitle>
+          <DialogTitle>Resetar resultados?</DialogTitle>
           <DialogDescription>
-            Esta ação remove todos os placares publicados dos jogos e recalcula
-            o ranking sem esses pontos.
+            Esta ação apaga placares oficiais, limpa o pódio publicado e
+            recalcula o ranking do zero.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="mt-6 flex justify-end gap-3">
@@ -53,11 +59,9 @@ export function ClearResultsDialog({ disabled }: { disabled?: boolean }) {
               Cancelar
             </Button>
           </DialogClose>
-          <DialogClose asChild>
-            <SubmitButton variant="danger" pendingLabel="Limpando...">
-              Confirmar limpeza
-            </SubmitButton>
-          </DialogClose>
+          <SubmitButton variant="danger" pendingLabel="Resetando...">
+            Confirmar reset
+          </SubmitButton>
         </form>
       </DialogContent>
     </Dialog>

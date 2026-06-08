@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   activateSignupRequestDemo,
+  clearOfficialResultsDemo,
   getDemoSnapshot,
   resetDemoStore,
   reviewSignupRequestDemo,
+  saveOfficialResultDemo,
+  savePlacementResultDemo,
   saveMatchPredictionDemo,
   savePhaseRuleDemo,
 } from "@/lib/services/demo-store";
@@ -108,6 +111,36 @@ describe("demo store", () => {
       buildLeaderboard(approvedSnapshot).some(
         (entry) => entry.userId === profile?.id,
       ),
+    ).toBe(true);
+  });
+
+  it("resets official match and placement results", () => {
+    saveOfficialResultDemo({
+      matchId: "match-1",
+      homeScore: 2,
+      awayScore: 1,
+      status: "completed",
+    });
+    savePlacementResultDemo({
+      competitionId: "world-cup-2026",
+      championTeamId: "team-bra",
+      runnerUpTeamId: "team-arg",
+      thirdPlaceTeamId: "team-esp",
+    });
+
+    const result = clearOfficialResultsDemo();
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.resetResults).toBeGreaterThan(0);
+    expect(result.data?.resetPlacement).toBe(true);
+
+    const snapshot = getDemoSnapshot();
+    expect(snapshot.results).toHaveLength(0);
+    expect(snapshot.placementResult).toEqual({
+      competitionId: "world-cup-2026",
+    });
+    expect(
+      snapshot.matches.every((match) => match.status === "scheduled"),
     ).toBe(true);
   });
 });
