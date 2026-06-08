@@ -24,6 +24,13 @@ type CustomSelectProps = {
   onValueChange?: (value: string) => void;
 };
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function CustomSelect({
   name,
   options,
@@ -42,14 +49,12 @@ export function CustomSelect({
   const [query, setQuery] = useState("");
   const [value, setValue] = useState(defaultValue);
   const selectedOption = options.find((option) => option.value === value);
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = normalizeSearchText(query.trim());
   const filteredOptions = useMemo(() => {
     if (!normalizedQuery) return options;
 
     return options.filter((option) =>
-      [option.label, ...(option.keywords ?? [])]
-        .join(" ")
-        .toLowerCase()
+      normalizeSearchText([option.label, ...(option.keywords ?? [])].join(" "))
         .includes(normalizedQuery),
     );
   }, [normalizedQuery, options]);

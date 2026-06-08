@@ -223,6 +223,10 @@ export function RankingView({
                 placar não. Se o placar exato bater, vale só Placar exato, sem
                 somar com Acertou vencedor.
               </p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Palpites de cada fase só são aceitos antes da primeira partida
+                da fase começar.
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
