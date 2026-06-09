@@ -13,10 +13,20 @@ describe("admin prediction coverage", () => {
     const anaGroups = ana?.phases.find(
       (phase) => phase.phaseId === "phase-groups",
     );
+    const podiumPhase = coverage.phases.find(
+      (phase) => phase.id === "phase-podium",
+    );
+    const anaPodium = ana?.phases.find(
+      (phase) => phase.phaseId === "phase-podium",
+    );
 
     expect(coverage.phases.some((phase) => phase.id === "phase-podium")).toBe(
-      false,
+      true,
     );
+    expect(podiumPhase?.totalMatches).toBe(3);
+    expect(podiumPhase?.countLabel).toBe("posição");
+    expect(anaPodium?.savedCount).toBe(3);
+    expect(anaPodium?.missingMatches).toHaveLength(0);
     expect(groupPhase?.totalMatches).toBe(72);
     expect(anaGroups?.savedCount).toBe(3);
     expect(anaGroups?.totalCount).toBe(72);

@@ -38,7 +38,11 @@ type SelectedCell = AdminPredictionCoverageCell & {
   memberName: string;
 };
 
-function formatMatchCount(count: number) {
+function formatPredictionCount(count: number, label: "jogo" | "posição") {
+  if (label === "posição") {
+    return `${count} ${count === 1 ? "posição" : "posições"}`;
+  }
+
   return `${count} jogo${count === 1 ? "" : "s"}`;
 }
 
@@ -102,7 +106,7 @@ export function AdminPredictionsCoverage({
             {data.summary.phaseCount}
           </div>
           <div className="text-sm text-[color:var(--text-muted)]">
-            fases com jogos
+            fases acompanhadas
           </div>
         </div>
         <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] p-4">
@@ -120,7 +124,7 @@ export function AdminPredictionsCoverage({
           <div>
             <CardTitle>Palpites por membro e fase</CardTitle>
             <CardDescription>
-              Acompanhe somente a cobertura dos palpites, sem mostrar placares.
+              Acompanhe somente a cobertura dos palpites, sem mostrar escolhas.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-80">
@@ -144,7 +148,7 @@ export function AdminPredictionsCoverage({
                   <TableHead key={phase.id} className="min-w-[132px]">
                     <div>{phase.name}</div>
                     <div className="mt-1 text-[10px] normal-case tracking-normal">
-                      {formatMatchCount(phase.totalMatches)}
+                      {formatPredictionCount(phase.totalMatches, phase.countLabel)}
                     </div>
                   </TableHead>
                 ))}
@@ -217,7 +221,11 @@ export function AdminPredictionsCoverage({
           {selectedCell ? (
             <div className="flex max-h-[calc(82vh-3rem)] flex-col gap-5">
               <DialogHeader>
-                <DialogTitle>Jogos faltantes</DialogTitle>
+                <DialogTitle>
+                  {selectedCell.countLabel === "posição"
+                    ? "Posições faltantes"
+                    : "Jogos faltantes"}
+                </DialogTitle>
                 <DialogDescription>
                   {selectedCell.memberName} em {selectedCell.phaseName}:{" "}
                   {selectedCell.savedCount}/{selectedCell.totalCount} palpites.
@@ -235,17 +243,20 @@ export function AdminPredictionsCoverage({
                         {match.label}
                       </div>
                       <div className="mt-1 text-sm text-[color:var(--text-muted)]">
-                        {match.roundLabel} · {match.venue}
+                        {match.roundLabel}
+                        {match.venue ? ` · ${match.venue}` : ""}
                       </div>
-                      <div className="mt-1 text-xs text-[color:var(--text-muted)]">
-                        {formatDateTime(match.kickoffAt)}
-                      </div>
+                      {match.kickoffAt ? (
+                        <div className="mt-1 text-xs text-[color:var(--text-muted)]">
+                          {formatDateTime(match.kickoffAt)}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="rounded-lg bg-[color:var(--surface-muted)] p-6 text-sm text-[color:var(--text-muted)]">
-                  Nenhum jogo pendente nessa fase.
+                  Nenhuma pendência nessa fase.
                 </div>
               )}
             </div>

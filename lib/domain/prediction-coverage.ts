@@ -9,14 +9,17 @@ export type AdminPredictionCoverageMatch = {
   id: string;
   label: string;
   roundLabel: string;
-  kickoffAt: string;
-  venue: string;
+  kickoffAt?: string;
+  venue?: string;
 };
+
+type CoverageCountLabel = "jogo" | "posição";
 
 export type AdminPredictionCoveragePhase = {
   id: string;
   name: string;
   totalMatches: number;
+  countLabel: CoverageCountLabel;
 };
 
 export type AdminPredictionCoverageCell = {
@@ -24,6 +27,7 @@ export type AdminPredictionCoverageCell = {
   phaseName: string;
   savedCount: number;
   totalCount: number;
+  countLabel: CoverageCountLabel;
   missingMatches: AdminPredictionCoverageMatch[];
 };
 
@@ -44,6 +48,12 @@ export type AdminPredictionCoverageData = {
   };
 };
 
+const placementSlots = [
+  { id: "championTeamId", label: "Campeão" },
+  { id: "runnerUpTeamId", label: "Vice-campeão" },
+  { id: "thirdPlaceTeamId", label: "Terceiro lugar" },
+] as const;
+
 export function buildAdminPredictionCoverage(
   snapshot: AppSnapshot,
 ): AdminPredictionCoverageData {
@@ -52,7 +62,7 @@ export function buildAdminPredictionCoverage(
       phase,
       matches: getPhaseMatches(snapshot.matches, phase.id),
     }))
-    .filter(({ matches }) => matches.length > 0);
+    .filter(({ phase, matches }) => phase.id === "phase-podium" || matches.length > 0);
   const approvedUserIds = new Set(
     snapshot.memberships
       .filter(
@@ -73,10 +83,38 @@ export function buildAdminPredictionCoverage(
     userPredictions.add(prediction.matchId);
     predictionsByUser.set(prediction.userId, userPredictions);
   }
+  const placementPredictionsByUser = new Map(
+    snapshot.placementPredictions
+      .filter(
+        (prediction) =>
+          prediction.competitionId === snapshot.competition.id,
+      )
+      .map((prediction) => [prediction.userId, prediction]),
+  );
 
   const coverageMembers = members.map((member) => {
     const userPredictions = predictionsByUser.get(member.id) ?? new Set<string>();
     const phases = phaseGroups.map(({ phase, matches }) => {
+      if (phase.id === "phase-podium") {
+        const placementPrediction = placementPredictionsByUser.get(member.id);
+        const missingMatches = placementSlots
+          .filter((slot) => !placementPrediction?.[slot.id])
+          .map((slot) => ({
+            id: slot.id,
+            label: slot.label,
+            roundLabel: "Pódio final",
+          }));
+
+        return {
+          phaseId: phase.id,
+          phaseName: phase.name,
+          savedCount: placementSlots.length - missingMatches.length,
+          totalCount: placementSlots.length,
+          countLabel: "posição" as const,
+          missingMatches,
+        };
+      }
+
       const missingMatches = matches
         .filter((match) => !userPredictions.has(match.id))
         .map((match) => {
@@ -105,6 +143,7 @@ export function buildAdminPredictionCoverage(
         phaseName: phase.name,
         savedCount: matches.length - missingMatches.length,
         totalCount: matches.length,
+        countLabel: "jogo" as const,
         missingMatches,
       };
     });
@@ -121,7 +160,8 @@ export function buildAdminPredictionCoverage(
     phases: phaseGroups.map(({ phase, matches }) => ({
       id: phase.id,
       name: phase.name,
-      totalMatches: matches.length,
+      totalMatches: phase.id === "phase-podium" ? placementSlots.length : matches.length,
+      countLabel: phase.id === "phase-podium" ? "posição" : "jogo",
     })),
     members: coverageMembers,
     summary: {
