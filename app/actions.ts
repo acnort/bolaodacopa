@@ -10,6 +10,7 @@ import {
   memberRemovalSchema,
   memberRoleUpdateSchema,
   officialResultSchema,
+  phasePredictionBatchSchema,
   phaseRuleSchema,
   phaseRulesBatchSchema,
   placementPredictionSchema,
@@ -116,7 +117,7 @@ export async function savePhasePredictionsBatch(
     ).trim();
     const competitionId = String(formData.get("competitionId") ?? "").trim();
 
-    const result = await savePhasePredictionsBatchInternal({
+    const parsed = phasePredictionBatchSchema.parse({
       userId,
       phaseId,
       predictions,
@@ -130,6 +131,7 @@ export async function savePhasePredictionsBatch(
             }
           : undefined,
     });
+    const result = await savePhasePredictionsBatchInternal(parsed);
 
     revalidatePath("/app");
     revalidatePath("/app/palpites");

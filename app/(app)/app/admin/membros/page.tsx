@@ -1,12 +1,11 @@
 import { AdminMembersManager } from "@/components/admin-members-manager";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAppSnapshot, getCurrentUser } from "@/lib/services/app-service";
+import { getAdminMembersData } from "@/lib/services/app-service";
 
 export default async function AdminMembersPage() {
-  const snapshot = await getAppSnapshot();
-  const currentUser = await getCurrentUser(snapshot);
+  const data = await getAdminMembersData();
 
-  if (currentUser?.role !== "admin" && currentUser?.role !== "owner") {
+  if (!data) {
     return (
       <Card>
         <CardHeader>
@@ -16,12 +15,5 @@ export default async function AdminMembersPage() {
     );
   }
 
-  return (
-    <AdminMembersManager
-      snapshot={snapshot}
-      currentUserId={currentUser.id}
-      currentUserRole={currentUser.role}
-      appUrl={process.env.APP_URL}
-    />
-  );
+  return <AdminMembersManager data={data} appUrl={process.env.APP_URL} />;
 }

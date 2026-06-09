@@ -23,40 +23,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { AppSnapshot, UserRole } from "@/lib/domain/types";
+import type { AdminMembersData } from "@/lib/services/app-service";
 import { formatDate } from "@/lib/formatters";
 
 export function AdminMembersManager({
-  snapshot,
-  currentUserId,
-  currentUserRole,
+  data,
   appUrl,
 }: {
-  snapshot: AppSnapshot;
-  currentUserId: string;
-  currentUserRole: UserRole;
+  data: AdminMembersData;
   appUrl?: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const accessToken = snapshot.accessInvites[0]?.token;
   const origin =
     appUrl?.replace(/\/$/, "") ??
     (typeof window === "undefined" ? "" : window.location.origin);
   const accessLink = useMemo(() => {
-    if (!accessToken) return "";
-    return `${origin}/convite/${accessToken}`;
-  }, [accessToken, origin]);
-  const canManageRoles = currentUserRole === "owner";
-  const approvedProfiles = snapshot.memberships
-    .map((membership) =>
-      snapshot.profiles.find((profile) => profile.id === membership.userId),
-    )
-    .filter((profile): profile is NonNullable<typeof profile> =>
-      Boolean(profile),
-    );
-  const pendingRequests = snapshot.signupRequests.filter(
-    (request) => request.status === "pending",
-  );
+    if (!data.activeInviteToken) return "";
+    return `${origin}/convite/${data.activeInviteToken}`;
+  }, [data.activeInviteToken, origin]);
+  const canManageRoles = data.currentUserRole === "owner";
 
   async function copyAccessLink() {
     if (!accessLink) return;
@@ -119,7 +104,7 @@ export function AdminMembersManager({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {approvedProfiles.map((profile) => (
+                {data.members.map((profile) => (
                   <TableRow key={profile.id}>
                     <TableCell className="font-semibold">
                       {profile.fullName}
@@ -143,7 +128,7 @@ export function AdminMembersManager({
                       <RemoveMemberButton
                         userId={profile.id}
                         disabled={
-                          profile.id === currentUserId ||
+                          profile.id === data.currentUserId ||
                           profile.role !== "member"
                         }
                       />
@@ -171,7 +156,7 @@ export function AdminMembersManager({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendingRequests.map((request) => (
+              {data.pendingRequests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell className="font-semibold">
                     {request.fullName}
@@ -187,7 +172,7 @@ export function AdminMembersManager({
                   </TableCell>
                 </TableRow>
               ))}
-              {!pendingRequests.length ? (
+              {!data.pendingRequests.length ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}

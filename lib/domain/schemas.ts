@@ -2,19 +2,22 @@ import { z } from "zod";
 
 import { normalizeAppDateTimeToIso } from "@/lib/app-time";
 
-const appDateTimeSchema = z.string().min(1).transform((value, context) => {
-  const isoValue = normalizeAppDateTimeToIso(value);
+const appDateTimeSchema = z
+  .string()
+  .min(1)
+  .transform((value, context) => {
+    const isoValue = normalizeAppDateTimeToIso(value);
 
-  if (!isoValue) {
-    context.addIssue({
-      code: "custom",
-      message: "Data e hora invalidas.",
-    });
-    return z.NEVER;
-  }
+    if (!isoValue) {
+      context.addIssue({
+        code: "custom",
+        message: "Data e hora invalidas.",
+      });
+      return z.NEVER;
+    }
 
-  return isoValue;
-});
+    return isoValue;
+  });
 
 export const matchPredictionSchema = z.object({
   userId: z.string().min(1),
@@ -87,6 +90,26 @@ export const phaseRuleSchema = z.object({
 
 export const phaseRulesBatchSchema = z.object({
   rules: z.array(phaseRuleSchema).min(1),
+});
+
+export const phasePredictionBatchSchema = z.object({
+  userId: z.string().min(1),
+  phaseId: z.string().min(1),
+  predictions: z.array(
+    matchPredictionSchema.pick({
+      matchId: true,
+      homeScore: true,
+      awayScore: true,
+    }),
+  ),
+  placementPrediction: placementPredictionSchema
+    .pick({
+      competitionId: true,
+      championTeamId: true,
+      runnerUpTeamId: true,
+      thirdPlaceTeamId: true,
+    })
+    .optional(),
 });
 
 export const signupRequestSchema = z.object({

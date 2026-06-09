@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import type { AppSnapshot } from "@/lib/domain/types";
 
 export const SANDBOX_ENABLED_KEY = "bolao:sandbox:enabled";
-export const SANDBOX_SNAPSHOT_KEY = "bolao:sandbox:snapshot:v1";
+export const SANDBOX_SNAPSHOT_KEY = "bolao:sandbox:snapshot:v2";
 const SANDBOX_CHANGE_EVENT = "bolao:sandbox-change";
 let cachedRawSnapshot: string | null | undefined;
 let cachedParsedSnapshot: AppSnapshot | undefined;
@@ -66,5 +66,9 @@ function getSnapshotFromStorage() {
 }
 
 export function useSandboxSnapshot() {
-  return useSyncExternalStore(subscribe, getSnapshotFromStorage, () => undefined);
+  return useSyncExternalStore(
+    subscribe,
+    getSnapshotFromStorage,
+    () => undefined,
+  );
 }

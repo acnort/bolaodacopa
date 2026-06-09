@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 
 import { getFootballDataConfig } from "@/lib/services/football-data-config";
 import { syncResultsProviderAction } from "@/lib/services/app-service";
+
+export const dynamic = "force-dynamic";
+
+function secretsMatch(left: string | undefined, right: string) {
+  if (!left) return false;
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    timingSafeEqual(leftBuffer, rightBuffer)
+  );
+}
 
 export async function GET(request: NextRequest) {
   const config = getFootballDataConfig();
@@ -14,14 +29,25 @@ export async function GET(request: NextRequest) {
 
   const authHeader = request.headers.get("authorization");
   const cronSecret = request.headers.get("x-cron-secret");
-  const expected = config.cronSecret;
+  const expected = config.cronSecret?.trim();
+
+  if (!expected && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { ok: false, message: "Cron secret não configurado." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   if (expected) {
-    const bearer = authHeader?.replace(/^Bearer\s+/i, "");
-    if (bearer !== expected && cronSecret !== expected) {
+    const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const isAuthorized =
+      secretsMatch(bearer, expected) ||
+      secretsMatch(cronSecret ?? undefined, expected);
+
+    if (!isAuthorized) {
       return NextResponse.json(
         { ok: false, message: "Cron secret inválido." },
-        { status: 401 },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
   }
@@ -38,14 +64,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await syncResultsProviderAction({ mode, date, force });
-    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+    return NextResponse.json(result, {
+      status: result.ok ? 200 : 500,
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
+    console.error("Provider sync failed", error);
+
     return NextResponse.json(
       {
         ok: false,
-        message: error instanceof Error ? error.message : "Falha no sync do provider.",
+        message: "Falha no sync do provider.",
       },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

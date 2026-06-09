@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import {
   buildLeaderboard,
   buildScoreEntries,
+  isMatchResultPublic,
   isRuleOpen,
 } from "@/lib/domain/scoring";
 import type {
@@ -235,6 +236,185 @@ export async function getDashboardData() {
     isDemoMode: !isDatabaseConfigured(),
     isResultsApiConfigured:
       providerName !== "mock" && providerName !== "unconfigured",
+  };
+}
+
+function stripProfilePrivateFields(profile: Profile): Profile {
+  return {
+    ...profile,
+    email: "",
+  };
+}
+
+function getApprovedUserIds(snapshot: AppSnapshot) {
+  return new Set(
+    snapshot.memberships
+      .filter(
+        (membership) => membership.competitionId === snapshot.competition.id,
+      )
+      .map((membership) => membership.userId),
+  );
+}
+
+function getSensitiveEmptySnapshot(snapshot: AppSnapshot): AppSnapshot {
+  return {
+    ...snapshot,
+    profiles: [],
+    accessInvites: [],
+    signupRequests: [],
+    memberships: [],
+    matchPredictions: [],
+    placementPredictions: [],
+  };
+}
+
+function isPublishedDate(value: string | undefined, now: Date) {
+  if (!value) return false;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp <= now.getTime();
+}
+
+function getPublicMatchPredictions(snapshot: AppSnapshot, now: Date) {
+  const resultsByMatch = new Map(
+    snapshot.results.map((result) => [result.matchId, result]),
+  );
+  const matchesById = new Map(
+    snapshot.matches.map((match) => [match.id, match]),
+  );
+
+  return snapshot.matchPredictions.filter((prediction) =>
+    isMatchResultPublic(
+      matchesById.get(prediction.matchId),
+      resultsByMatch.get(prediction.matchId),
+      now,
+    ),
+  );
+}
+
+export async function getPublicRankingSnapshot(visibleAt = new Date()) {
+  const snapshot = await getAppSnapshot();
+  const approvedUserIds = getApprovedUserIds(snapshot);
+
+  return {
+    ...getSensitiveEmptySnapshot(snapshot),
+    profiles: snapshot.profiles
+      .filter((profile) => approvedUserIds.has(profile.id))
+      .map(stripProfilePrivateFields),
+    memberships: snapshot.memberships.filter((membership) =>
+      approvedUserIds.has(membership.userId),
+    ),
+    matchPredictions: getPublicMatchPredictions(snapshot, visibleAt),
+    placementPredictions: isPublishedDate(
+      snapshot.placementResult.publishedAt,
+      visibleAt,
+    )
+      ? snapshot.placementPredictions
+      : [],
+  };
+}
+
+export async function getCurrentUserPredictionsSnapshot() {
+  const snapshot = await getAppSnapshot();
+  const currentUser = await requireActionProfile(snapshot);
+
+  if (!currentUser) {
+    return getSensitiveEmptySnapshot(snapshot);
+  }
+
+  return {
+    ...getSensitiveEmptySnapshot(snapshot),
+    matchPredictions: snapshot.matchPredictions.filter(
+      (prediction) => prediction.userId === currentUser.id,
+    ),
+    placementPredictions: snapshot.placementPredictions.filter(
+      (prediction) => prediction.userId === currentUser.id,
+    ),
+  };
+}
+
+export async function getPublicResultsSnapshot() {
+  const snapshot = await getAppSnapshot();
+  return getSensitiveEmptySnapshot(snapshot);
+}
+
+export async function getAdminSandboxSnapshot() {
+  const snapshot = await getAppSnapshot();
+  const admin = await requireAdminProfile(snapshot);
+
+  if (!admin) return undefined;
+
+  const approvedUserIds = getApprovedUserIds(snapshot);
+
+  return {
+    ...getSensitiveEmptySnapshot(snapshot),
+    profiles: snapshot.profiles
+      .filter((profile) => approvedUserIds.has(profile.id))
+      .map(stripProfilePrivateFields),
+    memberships: snapshot.memberships.filter((membership) =>
+      approvedUserIds.has(membership.userId),
+    ),
+  };
+}
+
+export type AdminMembersData = {
+  currentUserId: string;
+  currentUserRole: UserRole;
+  activeInviteToken?: string;
+  members: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    role: UserRole;
+  }>;
+  pendingRequests: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    requestedAt: string;
+  }>;
+};
+
+export async function getAdminMembersData(): Promise<
+  AdminMembersData | undefined
+> {
+  const snapshot = await getAppSnapshot();
+  const admin = await requireAdminProfile(snapshot);
+
+  if (!admin) return undefined;
+
+  const approvedUserIds = getApprovedUserIds(snapshot);
+  const members = snapshot.profiles
+    .filter((profile) => approvedUserIds.has(profile.id))
+    .sort((left, right) => left.fullName.localeCompare(right.fullName, "pt-BR"))
+    .map((profile) => ({
+      id: profile.id,
+      fullName: profile.fullName,
+      email: profile.email,
+      role: profile.role,
+    }));
+  const activeInvite = snapshot.accessInvites.find(
+    (invite) => !invite.revokedAt,
+  );
+
+  return {
+    currentUserId: admin.id,
+    currentUserRole: admin.role,
+    activeInviteToken: activeInvite?.token,
+    members,
+    pendingRequests: snapshot.signupRequests
+      .filter((request) => request.status === "pending")
+      .sort(
+        (left, right) =>
+          new Date(left.requestedAt).getTime() -
+          new Date(right.requestedAt).getTime(),
+      )
+      .map((request) => ({
+        id: request.id,
+        fullName: request.fullName,
+        email: request.email,
+        requestedAt: request.requestedAt,
+      })),
   };
 }
 

@@ -1,12 +1,11 @@
 import { AdminSandboxPanel } from "@/components/admin-sandbox-panel";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAppSnapshot, getCurrentUser } from "@/lib/services/app-service";
+import { getAdminSandboxSnapshot } from "@/lib/services/app-service";
 
 export default async function AdminSandboxPage() {
-  const snapshot = await getAppSnapshot();
-  const currentUser = await getCurrentUser(snapshot);
+  const snapshot = await getAdminSandboxSnapshot();
 
-  if (currentUser?.role !== "admin" && currentUser?.role !== "owner") {
+  if (!snapshot) {
     return (
       <Card>
         <CardHeader>
