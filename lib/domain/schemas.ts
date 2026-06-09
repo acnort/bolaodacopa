@@ -26,26 +26,36 @@ export const matchPredictionSchema = z.object({
   awayScore: z.coerce.number().int().min(0).max(20),
 });
 
+const placementPredictionFieldsSchema = z.object({
+  competitionId: z.string().min(1),
+  championTeamId: z.string().min(1),
+  runnerUpTeamId: z.string().min(1),
+  thirdPlaceTeamId: z.string().min(1),
+});
+
+function hasUniquePlacementTeams(value: {
+  championTeamId: string;
+  runnerUpTeamId: string;
+  thirdPlaceTeamId: string;
+}) {
+  return (
+    new Set([
+      value.championTeamId,
+      value.runnerUpTeamId,
+      value.thirdPlaceTeamId,
+    ]).size === 3
+  );
+}
+
 export const placementPredictionSchema = z
   .object({
     userId: z.string().min(1),
-    competitionId: z.string().min(1),
-    championTeamId: z.string().min(1),
-    runnerUpTeamId: z.string().min(1),
-    thirdPlaceTeamId: z.string().min(1),
+    ...placementPredictionFieldsSchema.shape,
   })
-  .refine(
-    (value) =>
-      new Set([
-        value.championTeamId,
-        value.runnerUpTeamId,
-        value.thirdPlaceTeamId,
-      ]).size === 3,
-    {
-      message: "Campeão, vice e terceiro precisam ser times diferentes.",
-      path: ["thirdPlaceTeamId"],
-    },
-  );
+  .refine(hasUniquePlacementTeams, {
+    message: "Campeão, vice e terceiro precisam ser times diferentes.",
+    path: ["thirdPlaceTeamId"],
+  });
 
 export const officialResultSchema = z.object({
   matchId: z.string().min(1),
@@ -102,12 +112,10 @@ export const phasePredictionBatchSchema = z.object({
       awayScore: true,
     }),
   ),
-  placementPrediction: placementPredictionSchema
-    .pick({
-      competitionId: true,
-      championTeamId: true,
-      runnerUpTeamId: true,
-      thirdPlaceTeamId: true,
+  placementPrediction: placementPredictionFieldsSchema
+    .refine(hasUniquePlacementTeams, {
+      message: "Campeão, vice e terceiro precisam ser times diferentes.",
+      path: ["thirdPlaceTeamId"],
     })
     .optional(),
 });
