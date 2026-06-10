@@ -61,14 +61,14 @@ export function ProfileForm({ user }: { user: Profile }) {
   }, [previewUrl]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.76fr_1.24fr]">
+    <div className="grid items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
       <Card>
         <form ref={avatarFormRef} action={avatarFormAction}>
           <CardHeader>
             <CardTitle>Foto do perfil</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <CardContent className="space-y-4">
+            <div className="flex flex-col items-center gap-4 text-center">
               <label className="group relative cursor-pointer rounded-full focus-within:ring-2 focus-within:ring-[color:var(--accent-strong)] focus-within:ring-offset-2 focus-within:ring-offset-[color:var(--surface-base)] focus-within:outline-none">
                 <UserAvatar
                   name={user.fullName}
@@ -99,12 +99,15 @@ export function ProfileForm({ user }: { user: Profile }) {
                 />
               </label>
 
-              <div className="min-w-0 flex-1 space-y-3">
-                <p className="text-sm text-[color:var(--text-muted)]">
+              <div className="w-full space-y-3">
+                <p className="mx-auto max-w-[220px] text-sm text-[color:var(--text-muted)]">
                   Clique na foto para enviar PNG, JPG, WEBP ou GIF até 3 MB.
                 </p>
                 <FormFeedback field="avatar" state={avatarState} />
-                <SubmitButton pendingLabel="Salvando perfil...">
+                <SubmitButton
+                  className="w-full"
+                  pendingLabel="Salvando perfil..."
+                >
                   <Save className="h-4 w-4" />
                   Salvar perfil
                 </SubmitButton>
@@ -123,7 +126,7 @@ export function ProfileForm({ user }: { user: Profile }) {
           <CardContent className="space-y-5">
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
+                <label className="flex h-5 items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
                   <KeyRound className="h-4 w-4" />
                   Nova senha
                 </label>
@@ -138,7 +141,8 @@ export function ProfileForm({ user }: { user: Profile }) {
               </div>
 
               <div className="space-y-3">
-                <label className="text-sm font-medium text-[color:var(--text-strong)]">
+                <label className="flex h-5 items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
+                  <KeyRound className="h-4 w-4 opacity-0" aria-hidden="true" />
                   Confirmar nova senha
                 </label>
                 <Input
@@ -154,7 +158,10 @@ export function ProfileForm({ user }: { user: Profile }) {
 
             <FormFeedback state={passwordState} />
 
-            <SubmitButton pendingLabel="Redefinindo senha...">
+            <SubmitButton
+              className="w-full md:w-auto"
+              pendingLabel="Redefinindo senha..."
+            >
               <KeyRound className="h-4 w-4" />
               Redefinir senha
             </SubmitButton>
