@@ -86,12 +86,49 @@ jobs:
             echo "🏗️ Building and starting services..."
             docker compose -f docker-compose.prod.yml --env-file .env up -d --build --remove-orphans
 
-            echo "💾 Installing database backup cron..."
+            echo "💾 Installing database backup schedule..."
             chmod +x scripts/backup-postgres.sh
             mkdir -p "${{ env.BACKUP_DIR }}"
-            CRON_CMD="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin PROJECT_DIR=$PROJECT_DIR BACKUP_DIR=${{ env.BACKUP_DIR }} $PROJECT_DIR/scripts/backup-postgres.sh >> ${{ env.BACKUP_DIR }}/backup.log 2>&1"
-            CRON_LINE="30 3 * * * $CRON_CMD"
-            (crontab -l 2>/dev/null | grep -v "$PROJECT_DIR/scripts/backup-postgres.sh" || true; echo "$CRON_LINE") | crontab -
+            BACKUP_CMD="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin PROJECT_DIR=$PROJECT_DIR BACKUP_DIR=${{ env.BACKUP_DIR }} $PROJECT_DIR/scripts/backup-postgres.sh >> ${{ env.BACKUP_DIR }}/backup.log 2>&1"
+
+            if command -v crontab >/dev/null 2>&1; then
+              CRON_LINE="30 3 * * * $BACKUP_CMD"
+              (crontab -l 2>/dev/null | grep -v "$PROJECT_DIR/scripts/backup-postgres.sh" || true; echo "$CRON_LINE") | crontab -
+            elif command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
+              cat > /etc/systemd/system/bolaov2-db-backup.service <<EOF
+            [Unit]
+            Description=Backup bolaov2 Postgres database
+            After=docker.service
+            Requires=docker.service
+
+            [Service]
+            Type=oneshot
+            Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+            Environment=PROJECT_DIR=$PROJECT_DIR
+            Environment=BACKUP_DIR=${{ env.BACKUP_DIR }}
+            ExecStart=$PROJECT_DIR/scripts/backup-postgres.sh
+            StandardOutput=append:${{ env.BACKUP_DIR }}/backup.log
+            StandardError=append:${{ env.BACKUP_DIR }}/backup.log
+            EOF
+
+              cat > /etc/systemd/system/bolaov2-db-backup.timer <<'EOF'
+            [Unit]
+            Description=Run bolaov2 database backup daily
+
+            [Timer]
+            OnCalendar=*-*-* 03:30:00
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+
+              systemctl daemon-reload
+              systemctl enable --now bolaov2-db-backup.timer
+            else
+              echo "❌ Neither crontab nor systemd is available to schedule backups."
+              exit 1
+            fi
 
             echo "⏳ Waiting for app to stabilize..."
             sleep 10
