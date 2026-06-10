@@ -18,7 +18,11 @@ export default async function PrivateLayout({
   }
 
   return (
-    <AppShell userName={currentUser.fullName} userRole={currentUser.role}>
+    <AppShell
+      userAvatarUrl={currentUser.avatarUrl}
+      userName={currentUser.fullName}
+      userRole={currentUser.role}
+    >
       {children}
     </AppShell>
   );

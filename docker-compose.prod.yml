@@ -32,6 +32,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-bolaov2}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bolaov2}
       DATABASE_SSL: "false"
+    volumes:
+      - bolaov2-avatars:/app/public/uploads/avatars
 
   results-sync:
     image: curlimages/curl:8.16.0
@@ -52,4 +54,6 @@ services:
 
 volumes:
   bolaov2-postgres:
+    driver: local
+  bolaov2-avatars:
     driver: local

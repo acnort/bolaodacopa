@@ -12,6 +12,7 @@ import {
   type PhaseRuleInput,
   type PlacementPredictionInput,
   type PlacementResultInput,
+  type ProfileUpdateInput,
   type SignupRequestInput,
   type SignupRequestReviewInput,
   type SyncedMatchInput,
@@ -449,6 +450,32 @@ export function updateMemberRoleDemo(
     ok: true,
     message: "Perfil atualizado.",
     data: { updatedId: userId, role },
+  };
+}
+
+export function updateProfileDemo(
+  input: ProfileUpdateInput,
+): ActionResult<{ updatedId: string }> {
+  const profile = state.snapshot.profiles.find(
+    (item) => item.id === input.userId,
+  );
+
+  if (!profile) {
+    return { ok: false, message: "Perfil nao encontrado." };
+  }
+
+  if (input.avatarUrl !== undefined) {
+    profile.avatarUrl = input.avatarUrl;
+  }
+
+  if (input.passwordHash) {
+    state.passwordHashes.set(input.userId, input.passwordHash);
+  }
+
+  return {
+    ok: true,
+    message: "Perfil atualizado.",
+    data: { updatedId: input.userId },
   };
 }
 

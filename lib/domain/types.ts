@@ -8,6 +8,7 @@ export interface Profile {
   fullName: string;
   email: string;
   role: UserRole;
+  avatarUrl?: string;
   createdAt: string;
 }
 
@@ -265,6 +266,12 @@ export interface SignupRequestReviewInput {
 
 export interface AuthInput {
   email: string;
+}
+
+export interface ProfileUpdateInput {
+  userId: string;
+  avatarUrl?: string;
+  passwordHash?: string;
 }
 
 export interface ActionResult<T = unknown> {

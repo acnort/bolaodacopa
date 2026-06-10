@@ -15,6 +15,7 @@ import {
   phaseRulesBatchSchema,
   placementPredictionSchema,
   placementResultSchema,
+  profileUpdateSchema,
   signupRequestRemovalSchema,
   signupRequestReviewSchema,
   signupRequestSchema,
@@ -37,6 +38,7 @@ import {
   createSignupRequestAction as createSignupRequestInternal,
   createAccessInviteAction as createAccessInviteInternal,
   setupAccessAction as setupAccessInternal,
+  updateCurrentProfileAction as updateCurrentProfileInternal,
   updateMemberRoleAction as updateMemberRoleInternal,
 } from "@/lib/services/app-service";
 
@@ -366,6 +368,25 @@ export async function signOut() {
   await signOutInternal();
   revalidatePath("/app");
   redirect("/entrar");
+}
+
+export async function updateCurrentProfile(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+) {
+  try {
+    profileUpdateSchema.parse({
+      password: String(formData.get("password") ?? ""),
+      confirmPassword: String(formData.get("confirmPassword") ?? ""),
+    });
+
+    const result = await updateCurrentProfileInternal(formData);
+    revalidatePath("/app");
+    revalidatePath("/app/perfil");
+    return result;
+  } catch (error) {
+    return toErrorResult(error);
+  }
 }
 
 export async function saveOfficialResult(

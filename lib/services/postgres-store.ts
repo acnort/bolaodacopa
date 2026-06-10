@@ -15,6 +15,7 @@ import type {
   PhaseRuleInput,
   PlacementPredictionInput,
   PlacementResultInput,
+  ProfileUpdateInput,
   PredictionRule,
   SignupRequestInput,
   SignupRequestReviewInput,
@@ -742,10 +743,11 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       full_name: string;
       email: string;
       role: UserRole;
+      avatar_url: string | null;
       created_at: string;
     }>(
       `
-        select p.id, p.full_name, u.email, p.role, p.created_at
+        select p.id, p.full_name, u.email, p.role, p.avatar_url, p.created_at
         from profiles p
         inner join users u on u.id = p.user_id
         order by p.created_at asc
@@ -895,6 +897,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       fullName: row.full_name,
       email: row.email,
       role: row.role,
+      avatarUrl: row.avatar_url ?? undefined,
       createdAt: new Date(row.created_at).toISOString(),
     })),
     accessInvites: accessInvitesResult.rows.map((row) => ({
@@ -1584,6 +1587,63 @@ export async function updateMemberRolePostgres(
     message: "Perfil atualizado.",
     data: { updatedId: userId, role },
   };
+}
+
+export async function updateProfilePostgres(
+  input: ProfileUpdateInput,
+): Promise<ActionResult<{ updatedId: string }>> {
+  await ensureDatabaseSeeded();
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    const profile = await client.query<{ user_id: string }>(
+      "select user_id from profiles where id = $1 limit 1",
+      [input.userId],
+    );
+
+    if (!profile.rowCount) {
+      await client.query("rollback");
+      return { ok: false, message: "Perfil nao encontrado." };
+    }
+
+    if (input.avatarUrl !== undefined) {
+      await client.query(
+        `
+          update profiles
+          set avatar_url = $2
+          where id = $1
+        `,
+        [input.userId, input.avatarUrl],
+      );
+    }
+
+    if (input.passwordHash) {
+      await client.query(
+        `
+          update users
+          set password_hash = $2
+          where id = $1
+        `,
+        [profile.rows[0]!.user_id, input.passwordHash],
+      );
+    }
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Perfil atualizado.",
+      data: { updatedId: input.userId },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function createSignupRequestPostgres(

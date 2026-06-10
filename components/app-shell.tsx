@@ -22,6 +22,7 @@ import { signOut } from "@/app/actions";
 import { SandboxToggle } from "@/components/sandbox-toggle";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
 type NavigationLeaf = {
@@ -59,11 +60,27 @@ function getLinks(isAdmin: boolean): NavigationItem[] {
             label: "Admin",
             icon: Shield,
             items: [
-              { href: "/app/admin/regras", label: "Regras", icon: SlidersHorizontal },
-              { href: "/app/admin/resultados", label: "Resultados", icon: Trophy },
-              { href: "/app/admin/palpites", label: "Palpites", icon: ClipboardCheck },
+              {
+                href: "/app/admin/regras",
+                label: "Regras",
+                icon: SlidersHorizontal,
+              },
+              {
+                href: "/app/admin/resultados",
+                label: "Resultados",
+                icon: Trophy,
+              },
+              {
+                href: "/app/admin/palpites",
+                label: "Palpites",
+                icon: ClipboardCheck,
+              },
               { href: "/app/admin/membros", label: "Membros", icon: Users },
-              { href: "/app/admin/sandbox", label: "Sandbox", icon: FlaskConical },
+              {
+                href: "/app/admin/sandbox",
+                label: "Sandbox",
+                icon: FlaskConical,
+              },
             ],
           },
         ]
@@ -177,10 +194,12 @@ function SignOutForm() {
 
 export function AppShell({
   children,
+  userAvatarUrl,
   userName,
   userRole,
 }: {
   children: React.ReactNode;
+  userAvatarUrl?: string;
   userName: string;
   userRole: string;
 }) {
@@ -189,6 +208,7 @@ export function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAdmin = userRole === "admin" || userRole === "owner";
   const currentPath = optimisticPath;
+  const profileActive = isLinkActive(currentPath, "/app/perfil");
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
@@ -214,9 +234,25 @@ export function AppShell({
           </div>
           <div className="space-y-3">
             {isAdmin ? <SandboxToggle /> : null}
-            <p className="truncate px-3 text-sm font-semibold text-[color:var(--text-strong)]">
-              {userName}
-            </p>
+            <Link
+              href="/app/perfil"
+              onClick={() =>
+                startTransition(() => setOptimisticPath("/app/perfil"))
+              }
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                profileActive
+                  ? "bg-[color:var(--accent-strong)] text-white"
+                  : "text-[color:var(--text-strong)] hover:bg-[color:var(--surface-muted)]",
+              )}
+            >
+              <UserAvatar
+                name={userName}
+                avatarUrl={userAvatarUrl}
+                className="h-9 w-9 text-xs"
+              />
+              <span className="min-w-0 flex-1 truncate">{userName}</span>
+            </Link>
             <SignOutForm />
           </div>
         </aside>
@@ -230,9 +266,26 @@ export function AppShell({
               </Button>
             </DrawerTrigger>
             <DrawerContent className="lg:hidden">
-              <div className="mb-4 px-1 text-base font-semibold text-[color:var(--text-strong)]">
-                {userName}
-              </div>
+              <Link
+                href="/app/perfil"
+                onClick={() => {
+                  setOptimisticPath("/app/perfil");
+                  setMobileMenuOpen(false);
+                }}
+                className={cn(
+                  "mb-4 flex items-center gap-3 rounded-lg px-1 py-2 text-base font-semibold transition",
+                  profileActive
+                    ? "text-[color:var(--accent-strong-hover)]"
+                    : "text-[color:var(--text-strong)]",
+                )}
+              >
+                <UserAvatar
+                  name={userName}
+                  avatarUrl={userAvatarUrl}
+                  className="h-10 w-10 text-sm"
+                />
+                <span className="min-w-0 flex-1 truncate">{userName}</span>
+              </Link>
               <NavigationLinks
                 currentPath={currentPath}
                 isAdmin={isAdmin}

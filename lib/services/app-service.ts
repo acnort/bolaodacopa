@@ -1,7 +1,10 @@
 import "server-only";
 
+import { randomUUID } from "crypto";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
+import path from "path";
 
 import {
   buildLeaderboard,
@@ -43,6 +46,7 @@ import {
   savePlacementResultDemo,
   saveProviderSyncStateDemo,
   syncMatchesDemo,
+  updateProfileDemo,
 } from "@/lib/services/demo-store";
 import {
   activateAccessInvitePostgres,
@@ -64,6 +68,7 @@ import {
   savePlacementResultPostgres,
   saveProviderSyncStatePostgres,
   syncMatchesPostgres,
+  updateProfilePostgres,
 } from "@/lib/services/postgres-store";
 import type {
   ResultsSyncOptions,
@@ -86,6 +91,20 @@ const PROVIDER_RATE_LIMIT_MAX_CALLS = 8;
 const LIVE_SYNC_INTERVAL_SECONDS = 60;
 const MATCHDAY_SYNC_INTERVAL_SECONDS = 5 * 60;
 const BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60;
+const MAX_AVATAR_SIZE_BYTES = 3 * 1024 * 1024;
+const AVATAR_UPLOAD_PUBLIC_PATH = "/uploads/avatars";
+const AVATAR_UPLOAD_DIR = path.resolve(
+  process.cwd(),
+  "public",
+  "uploads",
+  "avatars",
+);
+const AVATAR_EXTENSIONS_BY_TYPE: Record<string, string> = {
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 let providerCallTimestamps: number[] = [];
 
@@ -173,6 +192,83 @@ function ownerOnlyResult<T = unknown>(): ActionResult<T> {
   return {
     ok: false,
     message: "Apenas owners podem executar esta ação.",
+  };
+}
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "arrayBuffer" in value &&
+    "size" in value &&
+    typeof value.size === "number"
+  );
+}
+
+function getLocalAvatarPath(avatarUrl: string) {
+  if (!avatarUrl.startsWith(`${AVATAR_UPLOAD_PUBLIC_PATH}/`)) {
+    return undefined;
+  }
+
+  const avatarPath = path.resolve(process.cwd(), "public", `.${avatarUrl}`);
+  const isInsideAvatarDir =
+    avatarPath === AVATAR_UPLOAD_DIR ||
+    avatarPath.startsWith(`${AVATAR_UPLOAD_DIR}${path.sep}`);
+
+  return isInsideAvatarDir ? avatarPath : undefined;
+}
+
+async function deleteLocalAvatar(avatarUrl: string | undefined) {
+  if (!avatarUrl) return;
+
+  const avatarPath = getLocalAvatarPath(avatarUrl);
+  if (!avatarPath) return;
+
+  try {
+    await unlink(avatarPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+async function saveAvatarFile(file: File, userId: string) {
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    return {
+      ok: false as const,
+      result: {
+        ok: false,
+        message: "A imagem precisa ter no máximo 3 MB.",
+        fieldErrors: { avatar: ["A imagem precisa ter no máximo 3 MB."] },
+      } satisfies ActionResult,
+    };
+  }
+
+  const extension = AVATAR_EXTENSIONS_BY_TYPE[file.type];
+  if (!extension) {
+    return {
+      ok: false as const,
+      result: {
+        ok: false,
+        message: "Envie uma imagem PNG, JPG, WEBP ou GIF.",
+        fieldErrors: { avatar: ["Envie uma imagem PNG, JPG, WEBP ou GIF."] },
+      } satisfies ActionResult,
+    };
+  }
+
+  await mkdir(AVATAR_UPLOAD_DIR, { recursive: true });
+
+  const filename = `${userId}-${randomUUID()}.${extension}`;
+  const avatarPath = path.join(AVATAR_UPLOAD_DIR, filename);
+  const avatarUrl = `${AVATAR_UPLOAD_PUBLIC_PATH}/${filename}`;
+
+  await writeFile(avatarPath, Buffer.from(await file.arrayBuffer()));
+
+  return {
+    ok: true as const,
+    avatarPath,
+    avatarUrl,
   };
 }
 
@@ -1199,6 +1295,83 @@ export async function signInAction(
     message: "Acesso liberado.",
     data: { redirectTo: "/app" },
   };
+}
+
+export async function updateCurrentProfileAction(
+  formData: FormData,
+): Promise<ActionResult<{ updatedId: string }>> {
+  const snapshot = await getAppSnapshot();
+  const currentUser = await requireActionProfile(snapshot);
+
+  if (!currentUser) {
+    return unauthorizedResult();
+  }
+
+  const avatarValue = formData.get("avatar");
+  const avatarFile =
+    isUploadedFile(avatarValue) && avatarValue.size > 0
+      ? avatarValue
+      : undefined;
+  const password = String(formData.get("password") ?? "");
+  const hasPasswordChange = Boolean(password);
+
+  if (!avatarFile && !hasPasswordChange) {
+    return {
+      ok: false,
+      message: "Envie uma imagem ou informe uma nova senha.",
+    };
+  }
+
+  let uploadedAvatarPath: string | undefined;
+  let uploadedAvatarUrl: string | undefined;
+
+  try {
+    if (avatarFile) {
+      const upload = await saveAvatarFile(avatarFile, currentUser.id);
+
+      if (!upload.ok) {
+        return upload.result;
+      }
+
+      uploadedAvatarPath = upload.avatarPath;
+      uploadedAvatarUrl = upload.avatarUrl;
+    }
+
+    const passwordHash = hasPasswordChange
+      ? await hashPassword(password)
+      : undefined;
+    const result = isDatabaseConfigured()
+      ? await updateProfilePostgres({
+          userId: currentUser.id,
+          avatarUrl: uploadedAvatarUrl,
+          passwordHash,
+        })
+      : updateProfileDemo({
+          userId: currentUser.id,
+          avatarUrl: uploadedAvatarUrl,
+          passwordHash,
+        });
+
+    if (!result.ok) {
+      if (uploadedAvatarPath) {
+        await unlink(uploadedAvatarPath).catch(() => undefined);
+      }
+
+      return result;
+    }
+
+    if (uploadedAvatarUrl && currentUser.avatarUrl !== uploadedAvatarUrl) {
+      await deleteLocalAvatar(currentUser.avatarUrl).catch(() => undefined);
+    }
+
+    return result;
+  } catch (error) {
+    if (uploadedAvatarPath) {
+      await unlink(uploadedAvatarPath).catch(() => undefined);
+    }
+
+    throw error;
+  }
 }
 
 export async function signOutAction(): Promise<

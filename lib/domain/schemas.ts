@@ -160,3 +160,31 @@ export const authSchema = z.object({
   email: z.email(),
   password: z.string().min(1, "Informe sua senha."),
 });
+
+export const profileUpdateSchema = z
+  .object({
+    password: z.string().optional(),
+    confirmPassword: z.string().optional(),
+  })
+  .superRefine((value, context) => {
+    const password = value.password ?? "";
+    const confirmPassword = value.confirmPassword ?? "";
+
+    if (!password && !confirmPassword) return;
+
+    if (password.length < 8) {
+      context.addIssue({
+        code: "custom",
+        message: "A senha precisa ter pelo menos 8 caracteres.",
+        path: ["password"],
+      });
+    }
+
+    if (password !== confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        message: "As senhas precisam ser iguais.",
+        path: ["confirmPassword"],
+      });
+    }
+  });
