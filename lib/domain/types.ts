@@ -166,6 +166,7 @@ export interface ScoreEntry {
 export interface LeaderboardEntry {
   userId: string;
   displayName: string;
+  avatarUrl?: string;
   totalPoints: number;
   exactHits: number;
   outcomeHits: number;

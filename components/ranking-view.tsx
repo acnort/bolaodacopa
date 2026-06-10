@@ -3,6 +3,7 @@
 import { RankingRowPredictionsDialog } from "@/components/ranking-row-predictions-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   Table,
   TableBody,
@@ -19,11 +20,6 @@ import {
 } from "@/lib/domain/scoring";
 import type { AppSnapshot } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
-
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
-}
 
 function getPositionClasses(position: number) {
   if (position === 1) {
@@ -55,10 +51,10 @@ function RulePill({
           : "text-[color:var(--text-muted)]"
       }`}
     >
-      <span className="px-2 py-1 font-medium leading-tight tracking-normal normal-case">
+      <span className="px-2 py-1 leading-tight font-medium tracking-normal normal-case">
         {label}
       </span>
-      <span className="border-l border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-1 font-bold leading-tight tracking-normal text-[color:var(--text-strong)]">
+      <span className="border-l border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-1 leading-tight font-bold tracking-normal text-[color:var(--text-strong)]">
         {points} pts
       </span>
     </span>
@@ -184,9 +180,11 @@ export function RankingView({
                           </TableCell>
                           <TableCell className="font-semibold">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--surface-subtle)] text-xs font-bold tracking-[0.14em] text-[color:var(--text-strong)]">
-                                {getInitials(entry.displayName)}
-                              </div>
+                              <UserAvatar
+                                name={entry.displayName}
+                                avatarUrl={entry.avatarUrl}
+                                className="h-9 w-9 text-xs"
+                              />
                               <span>{entry.displayName}</span>
                             </div>
                           </TableCell>

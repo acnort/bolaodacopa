@@ -125,6 +125,7 @@ export function buildLeaderboardEntries(
       {
         userId: profile.id,
         displayName: profile.fullName,
+        avatarUrl: profile.avatarUrl,
         totalPoints: 0,
         exactHits: 0,
         outcomeHits: 0,
@@ -153,6 +154,7 @@ export function buildLeaderboardEntries(
     .map((entry, index) => ({
       userId: entry.userId,
       displayName: entry.displayName,
+      avatarUrl: entry.avatarUrl,
       totalPoints: entry.totalPoints,
       exactHits: entry.exactHits,
       outcomeHits: entry.outcomeHits,

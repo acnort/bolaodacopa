@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, KeyRound, Save } from "lucide-react";
+import { Camera, KeyRound, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { updateCurrentProfile } from "@/app/actions";
@@ -61,28 +61,29 @@ export function ProfileForm({ user }: { user: Profile }) {
   }, [previewUrl]);
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6 xl:grid-cols-[0.76fr_1.24fr]">
       <Card>
         <form ref={avatarFormRef} action={avatarFormAction}>
           <CardHeader>
             <CardTitle>Foto do perfil</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <UserAvatar
-                name={user.fullName}
-                avatarUrl={previewUrl ?? user.avatarUrl}
-                className="h-24 w-24 text-2xl"
-              />
-              <div className="min-w-0 flex-1 space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
-                  <ImagePlus className="h-4 w-4" />
-                  Imagem
-                </label>
-                <Input
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+              <label className="group relative cursor-pointer rounded-full focus-within:ring-2 focus-within:ring-[color:var(--accent-strong)] focus-within:ring-offset-2 focus-within:ring-offset-[color:var(--surface-base)] focus-within:outline-none">
+                <UserAvatar
+                  name={user.fullName}
+                  avatarUrl={previewUrl ?? user.avatarUrl}
+                  className="h-28 w-28 text-2xl transition group-hover:brightness-75"
+                />
+                <span className="absolute inset-0 grid place-items-center rounded-full bg-black/45 text-white opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+                  <Camera className="h-6 w-6" />
+                </span>
+                <span className="sr-only">Alterar foto do perfil</span>
+                <input
                   name="avatar"
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="sr-only"
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
                     if (!file) {
@@ -96,12 +97,13 @@ export function ProfileForm({ user }: { user: Profile }) {
                     });
                   }}
                 />
+              </label>
+
+              <div className="min-w-0 flex-1 space-y-3">
                 <p className="text-sm text-[color:var(--text-muted)]">
-                  PNG, JPG, WEBP ou GIF. Tamanho máximo de 3 MB.
+                  Clique na foto para enviar PNG, JPG, WEBP ou GIF até 3 MB.
                 </p>
                 <FormFeedback field="avatar" state={avatarState} />
-              </div>
-              <div className="sm:self-start">
                 <SubmitButton pendingLabel="Salvando perfil...">
                   <Save className="h-4 w-4" />
                   Salvar perfil
