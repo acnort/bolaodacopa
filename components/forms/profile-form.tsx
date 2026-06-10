@@ -20,23 +20,39 @@ const initialState: ActionResult<{ updatedId: string }> = {
 
 export function ProfileForm({ user }: { user: Profile }) {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction] = useActionState(
+  const avatarFormRef = useRef<HTMLFormElement>(null);
+  const passwordFormRef = useRef<HTMLFormElement>(null);
+  const [avatarState, avatarFormAction] = useActionState(
+    updateCurrentProfile,
+    initialState,
+  );
+  const [passwordState, passwordFormAction] = useActionState(
     updateCurrentProfile,
     initialState,
   );
   const [previewUrl, setPreviewUrl] = useState<string>();
 
   useEffect(() => {
-    if (!state.message) return;
+    if (!avatarState.message) return;
 
-    toast[state.ok ? "success" : "error"](state.message);
+    toast[avatarState.ok ? "success" : "error"](avatarState.message);
 
-    if (state.ok) {
-      formRef.current?.reset();
+    if (avatarState.ok) {
+      avatarFormRef.current?.reset();
       router.refresh();
     }
-  }, [router, state]);
+  }, [avatarState, router]);
+
+  useEffect(() => {
+    if (!passwordState.message) return;
+
+    toast[passwordState.ok ? "success" : "error"](passwordState.message);
+
+    if (passwordState.ok) {
+      passwordFormRef.current?.reset();
+      router.refresh();
+    }
+  }, [passwordState, router]);
 
   useEffect(() => {
     return () => {
@@ -45,93 +61,104 @@ export function ProfileForm({ user }: { user: Profile }) {
   }, [previewUrl]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-6">
+    <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Foto do perfil</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <UserAvatar
-              name={user.fullName}
-              avatarUrl={previewUrl ?? user.avatarUrl}
-              className="h-24 w-24 text-2xl"
-            />
-            <div className="min-w-0 flex-1 space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
-                <ImagePlus className="h-4 w-4" />
-                Imagem
-              </label>
-              <Input
-                name="avatar"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  if (!file) {
-                    setPreviewUrl(undefined);
-                    return;
-                  }
-
-                  setPreviewUrl((current) => {
-                    if (current) URL.revokeObjectURL(current);
-                    return URL.createObjectURL(file);
-                  });
-                }}
+        <form ref={avatarFormRef} action={avatarFormAction}>
+          <CardHeader>
+            <CardTitle>Foto do perfil</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+              <UserAvatar
+                name={user.fullName}
+                avatarUrl={previewUrl ?? user.avatarUrl}
+                className="h-24 w-24 text-2xl"
               />
-              <p className="text-sm text-[color:var(--text-muted)]">
-                PNG, JPG, WEBP ou GIF. Tamanho máximo de 3 MB.
-              </p>
-              <FormFeedback field="avatar" state={state} />
+              <div className="min-w-0 flex-1 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
+                  <ImagePlus className="h-4 w-4" />
+                  Imagem
+                </label>
+                <Input
+                  name="avatar"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    if (!file) {
+                      setPreviewUrl(undefined);
+                      return;
+                    }
+
+                    setPreviewUrl((current) => {
+                      if (current) URL.revokeObjectURL(current);
+                      return URL.createObjectURL(file);
+                    });
+                  }}
+                />
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  PNG, JPG, WEBP ou GIF. Tamanho máximo de 3 MB.
+                </p>
+                <FormFeedback field="avatar" state={avatarState} />
+              </div>
+              <div className="sm:self-start">
+                <SubmitButton pendingLabel="Salvando perfil...">
+                  <Save className="h-4 w-4" />
+                  Salvar perfil
+                </SubmitButton>
+              </div>
             </div>
-          </div>
-        </CardContent>
+            <FormFeedback state={avatarState} />
+          </CardContent>
+        </form>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Redefinir senha</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
-                <KeyRound className="h-4 w-4" />
-                Nova senha
-              </label>
-              <Input
-                name="password"
-                type="password"
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="Mínimo de 8 caracteres"
-              />
-              <FormFeedback field="password" state={state} />
+        <form ref={passwordFormRef} action={passwordFormAction}>
+          <CardHeader>
+            <CardTitle>Redefinir senha</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-strong)]">
+                  <KeyRound className="h-4 w-4" />
+                  Nova senha
+                </label>
+                <Input
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Mínimo de 8 caracteres"
+                />
+                <FormFeedback field="password" state={passwordState} />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-[color:var(--text-strong)]">
+                  Confirmar nova senha
+                </label>
+                <Input
+                  name="confirmPassword"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Repita a nova senha"
+                />
+                <FormFeedback field="confirmPassword" state={passwordState} />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-[color:var(--text-strong)]">
-                Confirmar nova senha
-              </label>
-              <Input
-                name="confirmPassword"
-                type="password"
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="Repita a nova senha"
-              />
-              <FormFeedback field="confirmPassword" state={state} />
-            </div>
-          </div>
+            <FormFeedback state={passwordState} />
 
-          <FormFeedback state={state} />
-
-          <SubmitButton pendingLabel="Salvando perfil...">
-            <Save className="h-4 w-4" />
-            Salvar perfil
-          </SubmitButton>
-        </CardContent>
+            <SubmitButton pendingLabel="Redefinindo senha...">
+              <KeyRound className="h-4 w-4" />
+              Redefinir senha
+            </SubmitButton>
+          </CardContent>
+        </form>
       </Card>
-    </form>
+    </div>
   );
 }
