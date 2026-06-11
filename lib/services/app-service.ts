@@ -91,6 +91,7 @@ const PROVIDER_RATE_LIMIT_MAX_CALLS = 8;
 const LIVE_SYNC_INTERVAL_SECONDS = 60;
 const MATCHDAY_SYNC_INTERVAL_SECONDS = 5 * 60;
 const BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60;
+const RESULTS_UPDATED_STATE_KEY = "results:last-updated";
 const MAX_AVATAR_SIZE_BYTES = 3 * 1024 * 1024;
 const AVATAR_UPLOAD_PUBLIC_PATH = "/uploads/avatars";
 const AVATAR_UPLOAD_DIR = path.resolve(
@@ -559,6 +560,31 @@ async function saveProviderSyncState(key: string, syncedAt: string) {
   saveProviderSyncStateDemo(key, syncedAt);
 }
 
+export async function getResultsLastUpdatedAt() {
+  const lastResultsUpdate = await getProviderSyncState(
+    RESULTS_UPDATED_STATE_KEY,
+  );
+  if (lastResultsUpdate) return lastResultsUpdate;
+
+  const providerName = getResultsProviderName();
+  const providerKeys = [
+    getProviderSyncStateKey(providerName),
+    getProviderSyncStateKey("football-data"),
+    getProviderSyncStateKey("api-football"),
+  ];
+
+  for (const key of new Set(providerKeys)) {
+    const lastProviderSync = await getProviderSyncState(key);
+    if (lastProviderSync) return lastProviderSync;
+  }
+
+  return undefined;
+}
+
+async function markResultsUpdatedAt(updatedAt = new Date().toISOString()) {
+  await saveProviderSyncState(RESULTS_UPDATED_STATE_KEY, updatedAt);
+}
+
 function isSameLocalDay(left: Date, right: Date) {
   return (
     left.getFullYear() === right.getFullYear() &&
@@ -771,6 +797,7 @@ export async function syncResultsProviderAction(
 
   const syncedAt = new Date().toISOString();
   await saveProviderSyncState(syncStateKey, syncedAt);
+  await markResultsUpdatedAt(syncedAt);
 
   return {
     ok: true,
@@ -1048,19 +1075,7 @@ export async function saveOfficialResultAction(
   const admin = await requireAdminProfile();
   if (!admin) return forbiddenResult();
 
-  if (isDatabaseConfigured()) {
-    return saveOfficialResultPostgres({
-      matchId: String(formData.get("matchId") ?? ""),
-      homeScore: Number(formData.get("homeScore") ?? 0),
-      awayScore: Number(formData.get("awayScore") ?? 0),
-      status: String(formData.get("status") ?? "completed") as
-        | "scheduled"
-        | "in_progress"
-        | "completed",
-    });
-  }
-
-  return saveOfficialResultDemo({
+  const input = {
     matchId: String(formData.get("matchId") ?? ""),
     homeScore: Number(formData.get("homeScore") ?? 0),
     awayScore: Number(formData.get("awayScore") ?? 0),
@@ -1068,7 +1083,17 @@ export async function saveOfficialResultAction(
       | "scheduled"
       | "in_progress"
       | "completed",
-  });
+  };
+
+  if (isDatabaseConfigured()) {
+    const result = await saveOfficialResultPostgres(input);
+    if (result.ok) await markResultsUpdatedAt();
+    return result;
+  }
+
+  const result = saveOfficialResultDemo(input);
+  if (result.ok) await markResultsUpdatedAt();
+  return result;
 }
 
 export async function clearOfficialResultsAction(): Promise<
@@ -1077,9 +1102,12 @@ export async function clearOfficialResultsAction(): Promise<
   const admin = await requireAdminProfile();
   if (!admin) return forbiddenResult();
 
-  return isDatabaseConfigured()
-    ? clearOfficialResultsPostgres()
+  const result = isDatabaseConfigured()
+    ? await clearOfficialResultsPostgres()
     : clearOfficialResultsDemo();
+
+  if (result.ok) await markResultsUpdatedAt();
+  return result;
 }
 
 export async function savePlacementResultAction(
@@ -1088,21 +1116,22 @@ export async function savePlacementResultAction(
   const admin = await requireAdminProfile();
   if (!admin) return forbiddenResult();
 
-  if (isDatabaseConfigured()) {
-    return savePlacementResultPostgres({
-      competitionId: String(formData.get("competitionId") ?? ""),
-      championTeamId: String(formData.get("championTeamId") ?? ""),
-      runnerUpTeamId: String(formData.get("runnerUpTeamId") ?? ""),
-      thirdPlaceTeamId: String(formData.get("thirdPlaceTeamId") ?? ""),
-    });
-  }
-
-  return savePlacementResultDemo({
+  const input = {
     competitionId: String(formData.get("competitionId") ?? ""),
     championTeamId: String(formData.get("championTeamId") ?? ""),
     runnerUpTeamId: String(formData.get("runnerUpTeamId") ?? ""),
     thirdPlaceTeamId: String(formData.get("thirdPlaceTeamId") ?? ""),
-  });
+  };
+
+  if (isDatabaseConfigured()) {
+    const result = await savePlacementResultPostgres(input);
+    if (result.ok) await markResultsUpdatedAt();
+    return result;
+  }
+
+  const result = savePlacementResultDemo(input);
+  if (result.ok) await markResultsUpdatedAt();
+  return result;
 }
 
 export async function savePhaseRuleAction(

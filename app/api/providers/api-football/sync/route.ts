@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 
-import { getFootballDataConfig } from "@/lib/services/football-data-config";
 import { syncResultsProviderAction } from "@/lib/services/app-service";
+import { getResultsProviderName } from "@/lib/services/results-provider-factory";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +19,17 @@ function secretsMatch(left: string | undefined, right: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const config = getFootballDataConfig();
-  if (!config) {
+  const providerName = getResultsProviderName();
+  if (providerName === "mock" || providerName === "unconfigured") {
     return NextResponse.json(
-      { ok: false, message: "football-data.org não configurada." },
+      { ok: false, message: "API de resultados não configurada." },
       { status: 503 },
     );
   }
 
   const authHeader = request.headers.get("authorization");
   const cronSecret = request.headers.get("x-cron-secret");
-  const expected = config.cronSecret?.trim();
+  const expected = process.env.INTERNAL_CRON_SECRET?.trim();
 
   if (!expected && process.env.NODE_ENV === "production") {
     return NextResponse.json(

@@ -10,7 +10,7 @@ export interface FootballDataConfig {
 }
 
 export function getFootballDataConfig(): FootballDataConfig | null {
-  const apiKey = process.env.FOOTBALL_DATA_API_KEY ?? process.env.API_FOOTBALL_KEY;
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
 
   if (!apiKey) {
     return null;
@@ -18,7 +18,8 @@ export function getFootballDataConfig(): FootballDataConfig | null {
 
   return {
     apiKey,
-    baseUrl: process.env.FOOTBALL_DATA_BASE_URL ?? "https://api.football-data.org/v4",
+    baseUrl:
+      process.env.FOOTBALL_DATA_BASE_URL ?? "https://api.football-data.org/v4",
     competitionId: Number(process.env.FOOTBALL_DATA_COMPETITION_ID ?? 2000),
     cronSecret: process.env.INTERNAL_CRON_SECRET,
   };

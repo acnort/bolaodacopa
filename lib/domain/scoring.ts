@@ -152,24 +152,39 @@ export function buildLeaderboardEntries(
     current.outcomeHits += entry.outcomeHit ? 1 : 0;
   }
 
-  return [...byUser.values()]
-    .sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-      if (b.exactHits !== a.exactHits) return b.exactHits - a.exactHits;
-      if (b.outcomeHits !== a.outcomeHits) {
-        return b.outcomeHits - a.outcomeHits;
-      }
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    })
-    .map((entry, index) => ({
+  const sortedEntries = [...byUser.values()].sort((a, b) => {
+    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+    if (b.exactHits !== a.exactHits) return b.exactHits - a.exactHits;
+    if (b.outcomeHits !== a.outcomeHits) {
+      return b.outcomeHits - a.outcomeHits;
+    }
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+
+  let currentPosition = 0;
+
+  return sortedEntries.map((entry, index) => {
+    const previous = sortedEntries[index - 1];
+    const isTiedWithPrevious =
+      previous &&
+      previous.totalPoints === entry.totalPoints &&
+      previous.exactHits === entry.exactHits &&
+      previous.outcomeHits === entry.outcomeHits;
+
+    if (!isTiedWithPrevious) {
+      currentPosition = index + 1;
+    }
+
+    return {
       userId: entry.userId,
       displayName: entry.displayName,
       avatarUrl: entry.avatarUrl,
       totalPoints: entry.totalPoints,
       exactHits: entry.exactHits,
       outcomeHits: entry.outcomeHits,
-      position: index + 1,
-    }));
+      position: currentPosition,
+    };
+  });
 }
 
 export function buildScoreEntries(snapshot: AppSnapshot, now = new Date()) {

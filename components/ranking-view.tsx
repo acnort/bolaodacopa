@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { RankingRowPredictionsDialog } from "@/components/ranking-row-predictions-dialog";
 import { TeamFlag } from "@/components/team-flag";
@@ -23,13 +25,14 @@ import {
 import {
   buildLeaderboard,
   buildLiveLeaderboardMovements,
-  buildScoreEntries,
   isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
 import type { AppSnapshot } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 const UPCOMING_MATCH_WINDOW_MS = 30 * 60 * 1000;
+const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
+const RANKING_REFRESH_INTERVAL_MS = 60 * 1000;
 
 function getPositionClasses(position: number) {
   if (position === 1) {
@@ -56,10 +59,10 @@ function LiveMovementPill({ positionDelta }: { positionDelta: number }) {
     <span
       aria-label={label}
       title={label}
-      className={`inline-flex h-7 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold ${
+      className={`inline-flex min-w-8 items-center justify-center gap-1 text-xs font-bold ${
         isUp
-          ? "bg-[color:var(--success-soft)] text-[color:var(--success-strong)]"
-          : "bg-[color:var(--danger-soft)] text-[color:var(--danger-strong)]"
+          ? "text-[color:var(--success-strong)]"
+          : "text-[color:var(--danger-strong)]"
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -77,6 +80,28 @@ function getMatchStatusLabel(kickoffAt: string, now: Date) {
   }
 
   return `Começa em ${minutesToKickoff} min`;
+}
+
+function getUpdatedAgoLabel(updatedAt: string | undefined, now: Date) {
+  if (!updatedAt) return "Resultados ainda não sincronizados";
+
+  const updatedAtDate = new Date(updatedAt);
+  if (!Number.isFinite(updatedAtDate.getTime())) {
+    return "Resultados ainda não sincronizados";
+  }
+
+  const elapsedMinutes = Math.max(
+    0,
+    Math.floor((now.getTime() - updatedAtDate.getTime()) / 60000),
+  );
+
+  if (elapsedMinutes === 0) {
+    return "Resultados atualizados há menos de 1 minuto atrás";
+  }
+
+  return `Resultados atualizados há ${elapsedMinutes} ${
+    elapsedMinutes === 1 ? "minuto" : "minutos"
+  } atrás`;
 }
 
 function RulePill({
@@ -109,22 +134,23 @@ function RulePill({
 export function RankingView({
   snapshot,
   visibleAt,
+  resultsLastUpdatedAt,
 }: {
   snapshot: AppSnapshot;
   visibleAt: string;
+  resultsLastUpdatedAt?: string;
 }) {
+  const router = useRouter();
   const sandboxSnapshot = useSandboxSnapshot();
   const activeSnapshot = sandboxSnapshot ?? snapshot;
   const isSandbox = Boolean(sandboxSnapshot);
   const visibleAtDate = new Date(visibleAt);
+  const [currentTime, setCurrentTime] = useState(visibleAtDate);
   const leaderboard = buildLeaderboard(activeSnapshot, visibleAtDate);
   const liveMovements = buildLiveLeaderboardMovements(
     activeSnapshot,
     visibleAtDate,
   );
-  const latestScores = buildScoreEntries(activeSnapshot, visibleAtDate)
-    .slice(-8)
-    .reverse();
   const resultsByMatchId = new Map(
     activeSnapshot.results.map((result) => [result.matchId, result]),
   );
@@ -133,11 +159,17 @@ export function RankingView({
   );
   const featuredMatches = activeSnapshot.matches
     .filter((match) => {
-      if (match.status === "in_progress") return true;
-      if (match.status !== "scheduled") return false;
-
+      const result = resultsByMatchId.get(match.id);
       const kickoffTime = new Date(match.kickoffAt).getTime();
-      const startsInMs = kickoffTime - visibleAtDate.getTime();
+      const startsInMs = kickoffTime - currentTime.getTime();
+      const isNearKickoff =
+        Number.isFinite(startsInMs) &&
+        startsInMs <= 0 &&
+        startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS;
+
+      if (match.status === "in_progress") return true;
+      if (match.status !== "completed" && result && isNearKickoff) return true;
+      if (match.status !== "scheduled") return false;
 
       return (
         Number.isFinite(startsInMs) &&
@@ -158,6 +190,15 @@ export function RankingView({
     }))
     .filter((item) => item.rule);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrentTime(new Date());
+      router.refresh();
+    }, RANKING_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [router]);
+
   return (
     <div className="space-y-6">
       {isSandbox ? (
@@ -169,6 +210,9 @@ export function RankingView({
           <Card>
             <CardHeader>
               <div className="text-lg font-bold">Ranking</div>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                {getUpdatedAgoLabel(resultsLastUpdatedAt, currentTime)}
+              </p>
             </CardHeader>
             <CardContent className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)] p-0">
               <div className="overflow-x-auto">
@@ -190,8 +234,11 @@ export function RankingView({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leaderboard.map((entry) => {
+                    {leaderboard.map((entry, index) => {
                       const liveMovement = liveMovements.get(entry.userId);
+                      const showPosition =
+                        index === 0 ||
+                        leaderboard[index - 1]?.position !== entry.position;
                       const visiblePredictions = activeSnapshot.matchPredictions
                         .filter((prediction) => {
                           if (prediction.userId !== entry.userId) return false;
@@ -239,11 +286,15 @@ export function RankingView({
                         <TableRow key={entry.userId}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex min-w-10 items-center justify-center rounded-md px-2 py-1 font-semibold ${getPositionClasses(entry.position)}`}
-                              >
-                                {entry.position}
-                              </span>
+                              {showPosition ? (
+                                <span
+                                  className={`inline-flex min-w-10 items-center justify-center rounded-md px-2 py-1 font-semibold ${getPositionClasses(entry.position)}`}
+                                >
+                                  {entry.position}
+                                </span>
+                              ) : (
+                                <span className="inline-flex min-w-10" />
+                              )}
                               {liveMovement ? (
                                 <LiveMovementPill
                                   positionDelta={liveMovement.positionDelta}
@@ -367,7 +418,15 @@ export function RankingView({
               ) : (
                 featuredMatches.map((match) => {
                   const result = resultsByMatchId.get(match.id);
-                  const isLive = match.status === "in_progress";
+                  const kickoffTime = new Date(match.kickoffAt).getTime();
+                  const startsInMs = kickoffTime - currentTime.getTime();
+                  const isLive =
+                    match.status === "in_progress" ||
+                    (match.status !== "completed" &&
+                      Boolean(result) &&
+                      Number.isFinite(startsInMs) &&
+                      startsInMs <= 0 &&
+                      startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS);
                   const homeTeam = match.homeTeamId
                     ? teamsById.get(match.homeTeamId)
                     : undefined;
@@ -413,7 +472,7 @@ export function RankingView({
                               ? "Ao vivo"
                               : getMatchStatusLabel(
                                   match.kickoffAt,
-                                  visibleAtDate,
+                                  currentTime,
                                 )}
                           </span>
                         </div>
@@ -437,36 +496,6 @@ export function RankingView({
                   );
                 })
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="text-lg font-bold">Últimas pontuações</div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {latestScores.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-lg bg-[color:var(--surface-muted)] p-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-semibold text-[color:var(--text-strong)]">
-                      {entry.description}
-                    </p>
-                    <Badge
-                      variant={entry.points > 0 ? "success" : "danger"}
-                      size="small"
-                      className="font-bold"
-                    >
-                      {entry.points} pts
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                    {entry.sourceType === "match" ? "Partida" : "Palpite final"}
-                  </p>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>

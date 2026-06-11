@@ -122,7 +122,7 @@ Limite informado para o plano free:
 
 Variáveis adicionais:
 
-- `FOOTBALL_DATA_API_KEY` ou `API_FOOTBALL_KEY` como fallback legado
+- `FOOTBALL_DATA_API_KEY`
 - `FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4`
 - `FOOTBALL_DATA_COMPETITION_ID=2178`
 - `INTERNAL_CRON_SECRET`

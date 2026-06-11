@@ -75,6 +75,7 @@ describe("ranking tiebreakers", () => {
       "u2",
       "u3",
     ]);
+    expect(leaderboard.map((entry) => entry.position)).toEqual([1, 2, 2]);
   });
 
   it("compares live ranking against standings without in-progress matches", () => {
@@ -188,7 +189,7 @@ describe("ranking tiebreakers", () => {
       new Date("2026-06-12T20:31:00.000Z"),
     );
 
-    expect(movements.get("u2")?.positionDelta).toBe(1);
+    expect(movements.get("u2")).toBeUndefined();
     expect(movements.get("u1")?.positionDelta).toBe(-1);
   });
 });

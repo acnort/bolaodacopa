@@ -53,10 +53,63 @@ try {
     .filter((file) => file.endsWith(".sql"))
     .sort();
 
+  await client.query(`
+    create table if not exists schema_migrations (
+      version text primary key,
+      applied_at timestamptz not null default timezone('utc', now())
+    )
+  `);
+
+  const appliedResult = await client.query(
+    "select version from schema_migrations",
+  );
+  const appliedVersions = new Set(appliedResult.rows.map((row) => row.version));
+
+  if (appliedVersions.size === 0) {
+    const existingDatabase = await client.query(`
+      select exists (
+        select 1
+        from information_schema.tables
+        where table_schema = 'public'
+          and table_name = 'competitions'
+      ) as exists
+    `);
+
+    if (existingDatabase.rows[0]?.exists) {
+      for (const file of migrationFiles) {
+        await client.query(
+          "insert into schema_migrations (version) values ($1) on conflict do nothing",
+          [file],
+        );
+        appliedVersions.add(file);
+      }
+
+      console.log(
+        "Banco existente detectado; migrations atuais marcadas como aplicadas.",
+      );
+    }
+  }
+
   for (const file of migrationFiles) {
+    if (appliedVersions.has(file)) {
+      console.log(`Migração já aplicada: ${file}`);
+      continue;
+    }
+
     const migrationPath = path.resolve(migrationsDir, file);
     const sql = await readFile(migrationPath, "utf8");
-    await client.query(sql);
+    await client.query("begin");
+    try {
+      await client.query(sql);
+      await client.query(
+        "insert into schema_migrations (version) values ($1)",
+        [file],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
     console.log(`Migração aplicada com sucesso: ${migrationPath}`);
   }
 } finally {
