@@ -45,9 +45,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Remove env files from runner
+      - name: Prepare deploy bundle
         run: |
-          rm -f .env .env.local .env.*.local
+          rm -rf .deploy
+          mkdir -p .deploy
+          tar \
+            --exclude='./.deploy' \
+            --exclude='./.git' \
+            --exclude='./.env' \
+            --exclude='./.env.local' \
+            --exclude='./.env.*.local' \
+            --exclude='./node_modules' \
+            --exclude='./.next' \
+            -cf - . | tar -xf - -C .deploy
 
       - name: Sync project to VPS
         uses: appleboy/scp-action@master
@@ -56,13 +66,12 @@ jobs:
           username: ${{ secrets.USERNAME }}
           port: ${{ secrets.PORT }}
           key: ${{ secrets.SSHKEY }}
-          source: "."
+          source: ".deploy"
           target: "${{ env.PROJECT_DIR }}"
-          strip_components: 0
+          strip_components: 1
           timeout: 180s
           overwrite: true
           rm: false
-          exclude: "node_modules,.next,.env,.env.local,.git"
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@master
