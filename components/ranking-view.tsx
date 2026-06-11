@@ -27,7 +27,7 @@ import {
   buildLiveLeaderboardMovements,
   isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
-import type { AppSnapshot } from "@/lib/domain/types";
+import type { AppSnapshot, MatchPrediction } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 const UPCOMING_MATCH_WINDOW_MS = 30 * 60 * 1000;
@@ -104,6 +104,29 @@ function getUpdatedAgoLabel(updatedAt: string | undefined, now: Date) {
   } atrás`;
 }
 
+function UserMatchPredictionBadge({
+  prediction,
+}: {
+  prediction?: Pick<MatchPrediction, "homeScore" | "awayScore">;
+}) {
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] px-3 py-2">
+      <span className="text-[11px] font-bold tracking-[0.14em] text-[color:var(--text-muted)] uppercase">
+        Seu palpite
+      </span>
+      {prediction ? (
+        <span className="rounded-md bg-[color:var(--surface-muted)] px-2 py-1 text-sm font-black text-[color:var(--text-strong)]">
+          {prediction.homeScore} x {prediction.awayScore}
+        </span>
+      ) : (
+        <span className="text-xs font-medium text-[color:var(--text-muted)]">
+          Sem palpite
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RulePill({
   label,
   points,
@@ -133,10 +156,15 @@ function RulePill({
 
 export function RankingView({
   snapshot,
+  currentUserMatchPredictions = [],
   visibleAt,
   resultsLastUpdatedAt,
 }: {
   snapshot: AppSnapshot;
+  currentUserMatchPredictions?: Pick<
+    MatchPrediction,
+    "matchId" | "homeScore" | "awayScore"
+  >[];
   visibleAt: string;
   resultsLastUpdatedAt?: string;
 }) {
@@ -153,6 +181,12 @@ export function RankingView({
   );
   const resultsByMatchId = new Map(
     activeSnapshot.results.map((result) => [result.matchId, result]),
+  );
+  const currentUserPredictionsByMatchId = new Map(
+    currentUserMatchPredictions.map((prediction) => [
+      prediction.matchId,
+      prediction,
+    ]),
   );
   const teamsById = new Map(
     activeSnapshot.teams.map((team) => [team.id, team]),
@@ -486,6 +520,8 @@ export function RankingView({
                   const awayTeam = match.awayTeamId
                     ? teamsById.get(match.awayTeamId)
                     : undefined;
+                  const currentUserPrediction =
+                    currentUserPredictionsByMatchId.get(match.id);
 
                   return (
                     <div
@@ -545,6 +581,9 @@ export function RankingView({
                           </div>
                         </div>
                       </div>
+                      <UserMatchPredictionBadge
+                        prediction={currentUserPrediction}
+                      />
                     </div>
                   );
                 })

@@ -1295,10 +1295,23 @@ export async function syncMatchesPostgres(
           set
             external_match_id = $2,
             kickoff_at = $3,
-            status = $4
+            status = case
+              when status = 'completed' then 'completed'
+              when $4 = 'completed' then 'completed'
+              when $4 = 'in_progress' then 'in_progress'
+              when $5 then 'in_progress'
+              when status = 'in_progress' then 'in_progress'
+              else $4
+            end
           where id = $1
         `,
-        [input.matchId, input.externalMatchId, input.kickoffAt, input.status],
+        [
+          input.matchId,
+          input.externalMatchId,
+          input.kickoffAt,
+          input.status,
+          input.homeScore !== undefined && input.awayScore !== undefined,
+        ],
       );
 
       updatedMatches += matchResult.rowCount ?? 0;

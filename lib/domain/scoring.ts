@@ -11,6 +11,8 @@ import {
   type ScoreEntry,
 } from "@/lib/domain/types";
 
+const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
+
 function getOutcome(homeScore: number, awayScore: number) {
   if (homeScore === awayScore) return "draw";
   return homeScore > awayScore ? "home" : "away";
@@ -248,18 +250,36 @@ export interface LiveLeaderboardMovement {
   positionDelta: number;
 }
 
+function isLiveResultForLeaderboard(
+  match: Pick<Match, "kickoffAt" | "status"> | undefined,
+  now: Date,
+) {
+  if (!match) return false;
+  if (match.status === "in_progress") return true;
+  if (match.status === "completed") return false;
+
+  const kickoffTime = new Date(match.kickoffAt).getTime();
+  const elapsedMs = now.getTime() - kickoffTime;
+
+  return (
+    Number.isFinite(elapsedMs) &&
+    elapsedMs >= 0 &&
+    elapsedMs <= LIVE_MATCH_STALE_WINDOW_MS
+  );
+}
+
 export function buildLiveLeaderboardMovements(
   snapshot: AppSnapshot,
   now = new Date(),
 ) {
-  const inProgressMatchIds = new Set(
-    snapshot.matches
-      .filter((match) => match.status === "in_progress")
-      .map((match) => match.id),
+  const matchesById = new Map(
+    snapshot.matches.map((match) => [match.id, match]),
   );
   const liveResultMatchIds = new Set(
     snapshot.results
-      .filter((result) => inProgressMatchIds.has(result.matchId))
+      .filter((result) =>
+        isLiveResultForLeaderboard(matchesById.get(result.matchId), now),
+      )
       .map((result) => result.matchId),
   );
 

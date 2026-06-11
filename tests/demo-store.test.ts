@@ -10,6 +10,7 @@ import {
   savePlacementResultDemo,
   saveMatchPredictionDemo,
   savePhaseRuleDemo,
+  syncMatchesDemo,
 } from "@/lib/services/demo-store";
 import { buildLeaderboard } from "@/lib/domain/scoring";
 
@@ -142,5 +143,54 @@ describe("demo store", () => {
     expect(
       snapshot.matches.every((match) => match.status === "scheduled"),
     ).toBe(true);
+  });
+
+  it("treats synced scores for scheduled matches as in progress", () => {
+    const matchId = getDemoSnapshot().matches.find(
+      (match) => match.status === "scheduled",
+    )!.id;
+    const result = syncMatchesDemo([
+      {
+        matchId,
+        externalMatchId: "external-1",
+        kickoffAt: "2026-06-11T16:00:00.000Z",
+        status: "scheduled",
+        homeScore: 1,
+        awayScore: 0,
+      },
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(
+      getDemoSnapshot().matches.find((match) => match.id === matchId)?.status,
+    ).toBe("in_progress");
+  });
+
+  it("does not regress in-progress matches to scheduled during sync", () => {
+    const matchId = getDemoSnapshot().matches.find(
+      (match) => match.status === "scheduled",
+    )!.id;
+
+    syncMatchesDemo([
+      {
+        matchId,
+        externalMatchId: "external-1",
+        kickoffAt: "2026-06-11T16:00:00.000Z",
+        status: "in_progress",
+      },
+    ]);
+
+    syncMatchesDemo([
+      {
+        matchId,
+        externalMatchId: "external-1",
+        kickoffAt: "2026-06-11T16:00:00.000Z",
+        status: "scheduled",
+      },
+    ]);
+
+    expect(
+      getDemoSnapshot().matches.find((match) => match.id === matchId)?.status,
+    ).toBe("in_progress");
   });
 });

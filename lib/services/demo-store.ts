@@ -7,6 +7,7 @@ import {
   type ActionResult,
   type AppSnapshot,
   type MatchPredictionInput,
+  type MatchStatus,
   type OfficialResultInput,
   type PhaseBatchPredictionInput,
   type PhaseRuleInput,
@@ -31,6 +32,23 @@ function nowIso() {
 
 function nextId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function mergeSyncedMatchStatus({
+  currentStatus,
+  inputStatus,
+  hasScore,
+}: {
+  currentStatus: MatchStatus;
+  inputStatus: MatchStatus;
+  hasScore: boolean;
+}) {
+  if (currentStatus === "completed") return "completed";
+  if (inputStatus === "completed") return "completed";
+  if (inputStatus === "in_progress") return "in_progress";
+  if (hasScore) return "in_progress";
+  if (currentStatus === "in_progress") return "in_progress";
+  return inputStatus;
 }
 
 export function getDemoSnapshot() {
@@ -240,7 +258,11 @@ export function syncMatchesDemo(
 
     match.externalMatchId = input.externalMatchId;
     match.kickoffAt = input.kickoffAt;
-    match.status = input.status;
+    match.status = mergeSyncedMatchStatus({
+      currentStatus: match.status,
+      inputStatus: input.status,
+      hasScore: input.homeScore !== undefined && input.awayScore !== undefined,
+    });
     updatedMatches += 1;
 
     if (input.homeScore === undefined || input.awayScore === undefined) {
