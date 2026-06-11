@@ -1,6 +1,9 @@
 "use client";
 
+import { ArrowDown, ArrowUp } from "lucide-react";
+
 import { RankingRowPredictionsDialog } from "@/components/ranking-row-predictions-dialog";
+import { TeamFlag } from "@/components/team-flag";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { UserAvatar } from "@/components/user-avatar";
@@ -12,14 +15,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getSortedPhases, getTeamName } from "@/lib/domain/selectors";
+import {
+  getSortedPhases,
+  getTeamName,
+  getTeamOrPlaceholder,
+} from "@/lib/domain/selectors";
 import {
   buildLeaderboard,
+  buildLiveLeaderboardMovements,
   buildScoreEntries,
   isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
 import type { AppSnapshot } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
+
+const UPCOMING_MATCH_WINDOW_MS = 30 * 60 * 1000;
 
 function getPositionClasses(position: number) {
   if (position === 1) {
@@ -32,6 +42,41 @@ function getPositionClasses(position: number) {
     return "bg-[#d9ad7c] text-[#5a3412]";
   }
   return "bg-[color:var(--surface-muted)] text-[color:var(--text-strong)]";
+}
+
+function LiveMovementPill({ positionDelta }: { positionDelta: number }) {
+  const isUp = positionDelta > 0;
+  const Icon = isUp ? ArrowUp : ArrowDown;
+  const count = Math.abs(positionDelta);
+  const label = isUp
+    ? `Subiu ${count} ${count === 1 ? "posição" : "posições"} com jogos em andamento`
+    : `Desceu ${count} ${count === 1 ? "posição" : "posições"} com jogos em andamento`;
+
+  return (
+    <span
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-7 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-xs font-bold ${
+        isUp
+          ? "bg-[color:var(--success-soft)] text-[color:var(--success-strong)]"
+          : "bg-[color:var(--danger-soft)] text-[color:var(--danger-strong)]"
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {count}
+    </span>
+  );
+}
+
+function getMatchStatusLabel(kickoffAt: string, now: Date) {
+  const kickoffTime = new Date(kickoffAt).getTime();
+  const minutesToKickoff = Math.ceil((kickoffTime - now.getTime()) / 60000);
+
+  if (!Number.isFinite(minutesToKickoff) || minutesToKickoff <= 0) {
+    return "Começa agora";
+  }
+
+  return `Começa em ${minutesToKickoff} min`;
 }
 
 function RulePill({
@@ -73,12 +118,38 @@ export function RankingView({
   const isSandbox = Boolean(sandboxSnapshot);
   const visibleAtDate = new Date(visibleAt);
   const leaderboard = buildLeaderboard(activeSnapshot, visibleAtDate);
+  const liveMovements = buildLiveLeaderboardMovements(
+    activeSnapshot,
+    visibleAtDate,
+  );
   const latestScores = buildScoreEntries(activeSnapshot, visibleAtDate)
     .slice(-8)
     .reverse();
   const resultsByMatchId = new Map(
     activeSnapshot.results.map((result) => [result.matchId, result]),
   );
+  const teamsById = new Map(
+    activeSnapshot.teams.map((team) => [team.id, team]),
+  );
+  const featuredMatches = activeSnapshot.matches
+    .filter((match) => {
+      if (match.status === "in_progress") return true;
+      if (match.status !== "scheduled") return false;
+
+      const kickoffTime = new Date(match.kickoffAt).getTime();
+      const startsInMs = kickoffTime - visibleAtDate.getTime();
+
+      return (
+        Number.isFinite(startsInMs) &&
+        startsInMs >= 0 &&
+        startsInMs <= UPCOMING_MATCH_WINDOW_MS
+      );
+    })
+    .sort(
+      (left, right) =>
+        new Date(left.kickoffAt).getTime() -
+        new Date(right.kickoffAt).getTime(),
+    );
   const phases = getSortedPhases(activeSnapshot.phases);
   const phaseRules = phases
     .map((phase) => ({
@@ -120,62 +191,65 @@ export function RankingView({
                   </TableHeader>
                   <TableBody>
                     {leaderboard.map((entry) => {
-                      const visiblePredictions =
-                        activeSnapshot.matchPredictions
-                          .filter((prediction) => {
-                            if (prediction.userId !== entry.userId)
-                              return false;
+                      const liveMovement = liveMovements.get(entry.userId);
+                      const visiblePredictions = activeSnapshot.matchPredictions
+                        .filter((prediction) => {
+                          if (prediction.userId !== entry.userId) return false;
 
-                            const match = activeSnapshot.matches.find(
-                              (item) => item.id === prediction.matchId,
-                            );
-                            const rule = activeSnapshot.rules.find(
-                              (item) => item.phaseId === match?.phaseId,
-                            );
+                          const match = activeSnapshot.matches.find(
+                            (item) => item.id === prediction.matchId,
+                          );
+                          const rule = activeSnapshot.rules.find(
+                            (item) => item.phaseId === match?.phaseId,
+                          );
 
-                            return isPhasePredictionVisible(
-                              rule,
-                              visibleAtDate,
-                            );
-                          })
-                          .map((prediction) => {
-                            const match = activeSnapshot.matches.find(
-                              (item) => item.id === prediction.matchId,
-                            );
-                            const result = resultsByMatchId.get(
-                              prediction.matchId,
-                            );
+                          return isPhasePredictionVisible(rule, visibleAtDate);
+                        })
+                        .map((prediction) => {
+                          const match = activeSnapshot.matches.find(
+                            (item) => item.id === prediction.matchId,
+                          );
+                          const result = resultsByMatchId.get(
+                            prediction.matchId,
+                          );
 
-                            return {
-                              matchId: prediction.matchId,
-                              phaseId: match?.phaseId ?? "",
-                              phaseName:
-                                phases.find(
-                                  (phase) => phase.id === match?.phaseId,
-                                )?.name ?? "Sem fase",
-                              homeTeam: getTeamName(
-                                activeSnapshot.teams,
-                                match?.homeTeamId,
-                              ),
-                              awayTeam: getTeamName(
-                                activeSnapshot.teams,
-                                match?.awayTeamId,
-                              ),
-                              predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
-                              officialScore: result
-                                ? `${result.homeScore} x ${result.awayScore}`
-                                : "-",
-                            };
-                          });
+                          return {
+                            matchId: prediction.matchId,
+                            phaseId: match?.phaseId ?? "",
+                            phaseName:
+                              phases.find(
+                                (phase) => phase.id === match?.phaseId,
+                              )?.name ?? "Sem fase",
+                            homeTeam: getTeamName(
+                              activeSnapshot.teams,
+                              match?.homeTeamId,
+                            ),
+                            awayTeam: getTeamName(
+                              activeSnapshot.teams,
+                              match?.awayTeamId,
+                            ),
+                            predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
+                            officialScore: result
+                              ? `${result.homeScore} x ${result.awayScore}`
+                              : "-",
+                          };
+                        });
 
                       return (
                         <TableRow key={entry.userId}>
                           <TableCell>
-                            <span
-                              className={`inline-flex min-w-10 items-center justify-center rounded-md px-2 py-1 font-semibold ${getPositionClasses(entry.position)}`}
-                            >
-                              {entry.position}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex min-w-10 items-center justify-center rounded-md px-2 py-1 font-semibold ${getPositionClasses(entry.position)}`}
+                              >
+                                {entry.position}
+                              </span>
+                              {liveMovement ? (
+                                <LiveMovementPill
+                                  positionDelta={liveMovement.positionDelta}
+                                />
+                              ) : null}
+                            </div>
                           </TableCell>
                           <TableCell className="font-semibold">
                             <div className="flex items-center gap-3">
@@ -280,35 +354,122 @@ export function RankingView({
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="text-lg font-bold">Últimas pontuações</div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {latestScores.map((entry) => (
-              <div
-                key={entry.id}
-                className="rounded-lg bg-[color:var(--surface-muted)] p-4"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm font-semibold text-[color:var(--text-strong)]">
-                    {entry.description}
-                  </p>
-                  <Badge
-                    variant={entry.points > 0 ? "success" : "danger"}
-                    size="small"
-                    className="font-bold"
-                  >
-                    {entry.points} pts
-                  </Badge>
-                </div>
-                <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                  {entry.sourceType === "match" ? "Partida" : "Palpite final"}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="text-lg font-bold">Partidas em andamento</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {featuredMatches.length === 0 ? (
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Nenhuma partida em andamento ou começando agora.
                 </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ) : (
+                featuredMatches.map((match) => {
+                  const result = resultsByMatchId.get(match.id);
+                  const isLive = match.status === "in_progress";
+                  const homeTeam = match.homeTeamId
+                    ? teamsById.get(match.homeTeamId)
+                    : undefined;
+                  const awayTeam = match.awayTeamId
+                    ? teamsById.get(match.awayTeamId)
+                    : undefined;
+
+                  return (
+                    <div
+                      key={match.id}
+                      className="rounded-lg bg-[color:var(--surface-muted)] p-3"
+                    >
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <TeamFlag
+                              code={homeTeam?.code}
+                              className="h-4 w-4 shrink-0 rounded-full"
+                            />
+                            <span className="truncate text-sm font-semibold">
+                              {getTeamOrPlaceholder(
+                                activeSnapshot.teams,
+                                match.homeTeamId,
+                                match.homePlaceholder,
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
+                            {isLive && result
+                              ? `${result.homeScore} x ${result.awayScore}`
+                              : "x"}
+                          </div>
+                          <span
+                            className={`text-[10px] font-bold tracking-[0.14em] whitespace-nowrap uppercase ${
+                              isLive
+                                ? "text-[color:var(--success-strong)]"
+                                : "text-[color:var(--accent-strong)]"
+                            }`}
+                          >
+                            {isLive
+                              ? "Ao vivo"
+                              : getMatchStatusLabel(
+                                  match.kickoffAt,
+                                  visibleAtDate,
+                                )}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="truncate text-right text-sm font-semibold">
+                              {getTeamOrPlaceholder(
+                                activeSnapshot.teams,
+                                match.awayTeamId,
+                                match.awayPlaceholder,
+                              )}
+                            </span>
+                            <TeamFlag
+                              code={awayTeam?.code}
+                              className="h-4 w-4 shrink-0 rounded-full"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="text-lg font-bold">Últimas pontuações</div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {latestScores.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-lg bg-[color:var(--surface-muted)] p-4"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm font-semibold text-[color:var(--text-strong)]">
+                      {entry.description}
+                    </p>
+                    <Badge
+                      variant={entry.points > 0 ? "success" : "danger"}
+                      size="small"
+                      className="font-bold"
+                    >
+                      {entry.points} pts
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+                    {entry.sourceType === "match" ? "Partida" : "Palpite final"}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

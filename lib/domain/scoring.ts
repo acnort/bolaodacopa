@@ -226,6 +226,64 @@ export function buildLeaderboard(snapshot: AppSnapshot, now = new Date()) {
   );
 }
 
+export interface LiveLeaderboardMovement {
+  userId: string;
+  currentPosition: number;
+  previousPosition: number;
+  positionDelta: number;
+}
+
+export function buildLiveLeaderboardMovements(
+  snapshot: AppSnapshot,
+  now = new Date(),
+) {
+  const inProgressMatchIds = new Set(
+    snapshot.matches
+      .filter((match) => match.status === "in_progress")
+      .map((match) => match.id),
+  );
+  const liveResultMatchIds = new Set(
+    snapshot.results
+      .filter((result) => inProgressMatchIds.has(result.matchId))
+      .map((result) => result.matchId),
+  );
+
+  if (liveResultMatchIds.size === 0) {
+    return new Map<string, LiveLeaderboardMovement>();
+  }
+
+  const baseSnapshot = {
+    ...snapshot,
+    results: snapshot.results.filter(
+      (result) => !liveResultMatchIds.has(result.matchId),
+    ),
+  };
+  const previousPositions = new Map(
+    buildLeaderboard(baseSnapshot, now).map((entry) => [
+      entry.userId,
+      entry.position,
+    ]),
+  );
+  const movements = new Map<string, LiveLeaderboardMovement>();
+
+  for (const entry of buildLeaderboard(snapshot, now)) {
+    const previousPosition = previousPositions.get(entry.userId);
+    if (!previousPosition) continue;
+
+    const positionDelta = previousPosition - entry.position;
+    if (positionDelta === 0) continue;
+
+    movements.set(entry.userId, {
+      userId: entry.userId,
+      currentPosition: entry.position,
+      previousPosition,
+      positionDelta,
+    });
+  }
+
+  return movements;
+}
+
 export function getPhaseRuleForMatch(match: Match, rules: PredictionRule[]) {
   return rules.find((rule) => rule.phaseId === match.phaseId);
 }
