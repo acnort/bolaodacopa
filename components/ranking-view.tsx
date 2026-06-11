@@ -157,6 +157,11 @@ export function RankingView({
   const teamsById = new Map(
     activeSnapshot.teams.map((team) => [team.id, team]),
   );
+  const getTeamPredictionView = (teamId?: string) => {
+    const team = teamId ? teamsById.get(teamId) : undefined;
+
+    return team ? { name: team.name, code: team.code } : undefined;
+  };
   const featuredMatches = activeSnapshot.matches
     .filter((match) => {
       const result = resultsByMatchId.get(match.id);
@@ -259,28 +264,75 @@ export function RankingView({
                           const result = resultsByMatchId.get(
                             prediction.matchId,
                           );
+                          const phase = phases.find(
+                            (item) => item.id === match?.phaseId,
+                          );
+                          const homeTeam = match?.homeTeamId
+                            ? teamsById.get(match.homeTeamId)
+                            : undefined;
+                          const awayTeam = match?.awayTeamId
+                            ? teamsById.get(match.awayTeamId)
+                            : undefined;
 
                           return {
                             matchId: prediction.matchId,
                             phaseId: match?.phaseId ?? "",
-                            phaseName:
-                              phases.find(
-                                (phase) => phase.id === match?.phaseId,
-                              )?.name ?? "Sem fase",
+                            phaseName: phase?.name ?? "Sem fase",
+                            phaseOrder: phase?.order ?? Number.MAX_SAFE_INTEGER,
+                            groupName: match?.stageGroup,
+                            kickoffAt: match?.kickoffAt ?? "",
                             homeTeam: getTeamName(
                               activeSnapshot.teams,
                               match?.homeTeamId,
                             ),
+                            homeTeamCode: homeTeam?.code,
                             awayTeam: getTeamName(
                               activeSnapshot.teams,
                               match?.awayTeamId,
                             ),
+                            awayTeamCode: awayTeam?.code,
                             predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
                             officialScore: result
                               ? `${result.homeScore} x ${result.awayScore}`
                               : "-",
                           };
                         });
+                      const placementPrediction =
+                        activeSnapshot.placementPredictions.find(
+                          (prediction) => prediction.userId === entry.userId,
+                        );
+                      const visiblePlacementPrediction = placementPrediction
+                        ? {
+                            champion: getTeamPredictionView(
+                              placementPrediction.championTeamId,
+                            ),
+                            runnerUp: getTeamPredictionView(
+                              placementPrediction.runnerUpTeamId,
+                            ),
+                            thirdPlace: getTeamPredictionView(
+                              placementPrediction.thirdPlaceTeamId,
+                            ),
+                            officialChampion: activeSnapshot.placementResult
+                              .publishedAt
+                              ? getTeamPredictionView(
+                                  activeSnapshot.placementResult.championTeamId,
+                                )
+                              : undefined,
+                            officialRunnerUp: activeSnapshot.placementResult
+                              .publishedAt
+                              ? getTeamPredictionView(
+                                  activeSnapshot.placementResult.runnerUpTeamId,
+                                )
+                              : undefined,
+                            officialThirdPlace: activeSnapshot.placementResult
+                              .publishedAt
+                              ? getTeamPredictionView(
+                                  activeSnapshot.placementResult
+                                    .thirdPlaceTeamId,
+                                )
+                              : undefined,
+                          }
+                        : undefined;
 
                       return (
                         <TableRow key={entry.userId}>
@@ -324,7 +376,8 @@ export function RankingView({
                           <TableCell className="text-right">
                             <RankingRowPredictionsDialog
                               displayName={entry.displayName}
-                              predictions={visiblePredictions}
+                              matchPredictions={visiblePredictions}
+                              placementPrediction={visiblePlacementPrediction}
                             />
                           </TableCell>
                         </TableRow>

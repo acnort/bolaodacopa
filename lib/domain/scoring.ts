@@ -274,23 +274,24 @@ export function buildLiveLeaderboardMovements(
     ),
   };
   const previousPositions = new Map(
-    buildLeaderboard(baseSnapshot, now).map((entry) => [
+    buildLeaderboard(baseSnapshot, now).map((entry, index) => [
       entry.userId,
-      entry.position,
+      index + 1,
     ]),
   );
   const movements = new Map<string, LiveLeaderboardMovement>();
 
-  for (const entry of buildLeaderboard(snapshot, now)) {
+  for (const [index, entry] of buildLeaderboard(snapshot, now).entries()) {
     const previousPosition = previousPositions.get(entry.userId);
     if (!previousPosition) continue;
 
-    const positionDelta = previousPosition - entry.position;
+    const currentPosition = index + 1;
+    const positionDelta = previousPosition - currentPosition;
     if (positionDelta === 0) continue;
 
     movements.set(entry.userId, {
       userId: entry.userId,
-      currentPosition: entry.position,
+      currentPosition,
       previousPosition,
       positionDelta,
     });

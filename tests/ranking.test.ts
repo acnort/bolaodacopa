@@ -189,7 +189,94 @@ describe("ranking tiebreakers", () => {
       new Date("2026-06-12T20:31:00.000Z"),
     );
 
-    expect(movements.get("u2")).toBeUndefined();
+    expect(movements.get("u2")?.positionDelta).toBe(1);
     expect(movements.get("u1")?.positionDelta).toBe(-1);
+  });
+
+  it("compares live movements by row order when base standings are tied", () => {
+    const profiles: Profile[] = Array.from({ length: 30 }, (_, index) => ({
+      id: `u${index + 1}`,
+      fullName: `User ${index + 1}`,
+      email: `user${index + 1}@test.dev`,
+      role: "member",
+      createdAt: `2026-01-${String(index + 1).padStart(2, "0")}T10:00:00.000Z`,
+    }));
+    const snapshot: AppSnapshot = {
+      competition: {
+        id: "world-cup",
+        name: "World Cup",
+        edition: "2026",
+        host: "Test",
+      },
+      teams: [],
+      phases: [],
+      rules: [
+        {
+          id: "rule-1",
+          phaseId: "phase-1",
+          enableMatchPredictions: true,
+          enablePlacementPredictions: false,
+          opensAt: "2026-06-01T00:00:00.000Z",
+          closesAt: "2026-06-10T00:00:00.000Z",
+          status: "active",
+          scoring: {
+            exactScore: 5,
+            correctOutcome: 2,
+            champion: 0,
+            runnerUp: 0,
+            thirdPlace: 0,
+          },
+        },
+      ],
+      matches: [
+        {
+          id: "match-live",
+          phaseId: "phase-1",
+          roundLabel: "Round 1",
+          kickoffAt: "2026-06-12T20:00:00.000Z",
+          venue: "Test",
+          status: "in_progress",
+        },
+      ],
+      results: [
+        {
+          matchId: "match-live",
+          homeScore: 0,
+          awayScore: 0,
+          publishedAt: "2026-06-12T20:01:00.000Z",
+        },
+      ],
+      placementResult: {
+        competitionId: "world-cup",
+      },
+      profiles,
+      accessInvites: [],
+      signupRequests: [],
+      memberships: profiles.map((profile) => ({
+        id: `membership-${profile.id}`,
+        userId: profile.id,
+        competitionId: "world-cup",
+        role: "member",
+        joinedAt: profile.createdAt,
+      })),
+      matchPredictions: profiles.map((profile, index) => ({
+        id: `prediction-${profile.id}`,
+        userId: profile.id,
+        matchId: "match-live",
+        homeScore: index === 27 ? 0 : 1,
+        awayScore: index === 27 ? 0 : 0,
+        createdAt: "",
+        updatedAt: "",
+      })),
+      placementPredictions: [],
+    };
+
+    const movements = buildLiveLeaderboardMovements(
+      snapshot,
+      new Date("2026-06-12T20:02:00.000Z"),
+    );
+
+    expect(movements.get("u28")?.positionDelta).toBe(27);
+    expect(movements.get("u30")?.positionDelta).toBeUndefined();
   });
 });

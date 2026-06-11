@@ -2,6 +2,7 @@
 
 import { Eye } from "lucide-react";
 
+import { TeamFlag } from "@/components/team-flag";
 import {
   Dialog,
   DialogContent,
@@ -21,20 +22,57 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface CompletedPredictionView {
+interface MatchPredictionView {
   matchId: string;
   phaseId: string;
   phaseName: string;
+  phaseOrder: number;
+  groupName?: string;
+  kickoffAt: string;
   homeTeam: string;
+  homeTeamCode?: string;
   awayTeam: string;
+  awayTeamCode?: string;
   predictedScore: string;
   officialScore: string;
 }
 
-function groupPredictionsByPhase(predictions: CompletedPredictionView[]) {
-  const groups = new Map<string, CompletedPredictionView[]>();
+interface PlacementPredictionView {
+  champion?: TeamPredictionView;
+  runnerUp?: TeamPredictionView;
+  thirdPlace?: TeamPredictionView;
+  officialChampion?: TeamPredictionView;
+  officialRunnerUp?: TeamPredictionView;
+  officialThirdPlace?: TeamPredictionView;
+}
 
-  for (const prediction of predictions) {
+interface TeamPredictionView {
+  name: string;
+  code?: string;
+}
+
+function sortByKickoff(left: MatchPredictionView, right: MatchPredictionView) {
+  const leftTime = new Date(left.kickoffAt).getTime();
+  const rightTime = new Date(right.kickoffAt).getTime();
+
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+
+  return left.matchId.localeCompare(right.matchId);
+}
+
+function groupPredictionsByPhase(predictions: MatchPredictionView[]) {
+  const sortedPredictions = [...predictions].sort((left, right) => {
+    if (left.phaseOrder !== right.phaseOrder) {
+      return left.phaseOrder - right.phaseOrder;
+    }
+
+    return sortByKickoff(left, right);
+  });
+  const groups = new Map<string, MatchPredictionView[]>();
+
+  for (const prediction of sortedPredictions) {
     const key = prediction.phaseId || prediction.phaseName;
     groups.set(key, [...(groups.get(key) ?? []), prediction]);
   }
@@ -42,18 +80,206 @@ function groupPredictionsByPhase(predictions: CompletedPredictionView[]) {
   return [...groups.values()].map((items) => ({
     phaseId: items[0]?.phaseId ?? "",
     phaseName: items[0]?.phaseName ?? "Sem fase",
+    phaseOrder: items[0]?.phaseOrder ?? Number.MAX_SAFE_INTEGER,
     predictions: items,
   }));
 }
 
-export function RankingRowPredictionsDialog({
-  displayName,
+function groupPredictionsBySection(
+  phaseId: string,
+  predictions: MatchPredictionView[],
+) {
+  if (phaseId !== "phase-groups") {
+    return [
+      {
+        id: "matches",
+        label: "",
+        predictions,
+      },
+    ];
+  }
+
+  const groups = new Map<string, MatchPredictionView[]>();
+
+  for (const prediction of predictions) {
+    const key = prediction.groupName ?? "Grupo";
+    groups.set(key, [...(groups.get(key) ?? []), prediction]);
+  }
+
+  return [...groups.entries()].map(([label, items]) => ({
+    id: label,
+    label,
+    predictions: items,
+  }));
+}
+
+function TeamName({ team }: { team?: TeamPredictionView }) {
+  if (!team) {
+    return (
+      <span className="text-[color:var(--text-muted)]">Não informado</span>
+    );
+  }
+
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2 font-medium">
+      <TeamFlag code={team.code} className="h-4 w-4 shrink-0 rounded-full" />
+      <span className="truncate">{team.name}</span>
+    </span>
+  );
+}
+
+function OfficialTeamName({ team }: { team?: TeamPredictionView }) {
+  if (!team) {
+    return (
+      <span className="text-xs text-[color:var(--text-muted)]">Pendente</span>
+    );
+  }
+
+  return <TeamName team={team} />;
+}
+
+function MatchPredictionTable({
   predictions,
 }: {
-  displayName: string;
-  predictions: CompletedPredictionView[];
+  predictions: MatchPredictionView[];
 }) {
-  const groupedPredictions = groupPredictionsByPhase(predictions);
+  return (
+    <div className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
+      <Table>
+        <TableHeader className="bg-[color:var(--surface-muted)]">
+          <TableRow>
+            <TableHead className="py-2">Jogo</TableHead>
+            <TableHead className="w-[110px] py-2 text-center">
+              Palpite
+            </TableHead>
+            <TableHead className="w-[110px] py-2 text-center">
+              Oficial
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {predictions.map((prediction) => (
+            <TableRow key={prediction.matchId}>
+              <TableCell className="py-2">
+                <div className="grid min-w-0 gap-1 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-2">
+                  <span className="inline-flex min-w-0 items-center gap-2 font-medium">
+                    <TeamFlag
+                      code={prediction.homeTeamCode}
+                      className="h-4 w-4 shrink-0 rounded-full"
+                    />
+                    <span className="truncate">{prediction.homeTeam}</span>
+                  </span>
+                  <span className="hidden text-[color:var(--text-muted)] sm:inline">
+                    x
+                  </span>
+                  <span className="inline-flex min-w-0 items-center gap-2 font-medium sm:justify-end">
+                    <span className="truncate sm:text-right">
+                      {prediction.awayTeam}
+                    </span>
+                    <TeamFlag
+                      code={prediction.awayTeamCode}
+                      className="h-4 w-4 shrink-0 rounded-full"
+                    />
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="py-2 text-center font-semibold">
+                {prediction.predictedScore}
+              </TableCell>
+              <TableCell className="py-2 text-center">
+                {prediction.officialScore === "-" ? (
+                  <span className="text-xs text-[color:var(--text-muted)]">
+                    Pendente
+                  </span>
+                ) : (
+                  <Badge variant="neutral" size="small">
+                    {prediction.officialScore}
+                  </Badge>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function PlacementPredictionBlock({
+  placementPrediction,
+}: {
+  placementPrediction: PlacementPredictionView;
+}) {
+  const rows = [
+    {
+      label: "Campeão",
+      predicted: placementPrediction.champion,
+      official: placementPrediction.officialChampion,
+    },
+    {
+      label: "Vice",
+      predicted: placementPrediction.runnerUp,
+      official: placementPrediction.officialRunnerUp,
+    },
+    {
+      label: "Terceiro",
+      predicted: placementPrediction.thirdPlace,
+      official: placementPrediction.officialThirdPlace,
+    },
+  ];
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
+          Pódio final
+        </h3>
+        <Badge variant="neutral" size="small">
+          3
+        </Badge>
+      </div>
+      <div className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
+        <Table>
+          <TableHeader className="bg-[color:var(--surface-muted)]">
+            <TableRow>
+              <TableHead className="w-[120px] py-2">Posição</TableHead>
+              <TableHead className="py-2">Palpite</TableHead>
+              <TableHead className="py-2">Oficial</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.label}>
+                <TableCell className="py-2 font-semibold">
+                  {row.label}
+                </TableCell>
+                <TableCell className="py-2">
+                  <TeamName team={row.predicted} />
+                </TableCell>
+                <TableCell className="py-2">
+                  <OfficialTeamName team={row.official} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  );
+}
+
+export function RankingRowPredictionsDialog({
+  displayName,
+  matchPredictions,
+  placementPrediction,
+}: {
+  displayName: string;
+  matchPredictions: MatchPredictionView[];
+  placementPrediction?: PlacementPredictionView;
+}) {
+  const groupedPredictions = groupPredictionsByPhase(matchPredictions);
+  const hasReleasedContent =
+    Boolean(placementPrediction) || matchPredictions.length > 0;
 
   return (
     <Dialog>
@@ -76,12 +302,18 @@ export function RankingRowPredictionsDialog({
         </DialogHeader>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-2">
-          {predictions.length === 0 ? (
+          {!hasReleasedContent ? (
             <div className="rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
               Nenhum palpite liberado.
             </div>
           ) : (
             <div className="space-y-5">
+              {placementPrediction ? (
+                <PlacementPredictionBlock
+                  placementPrediction={placementPrediction}
+                />
+              ) : null}
+
               {groupedPredictions.map((group) => (
                 <section
                   key={group.phaseId || group.phaseName}
@@ -95,51 +327,22 @@ export function RankingRowPredictionsDialog({
                       {group.predictions.length}
                     </Badge>
                   </div>
-                  <div className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
-                    <Table>
-                      <TableHeader className="bg-[color:var(--surface-muted)]">
-                        <TableRow>
-                          <TableHead className="py-2">Jogo</TableHead>
-                          <TableHead className="w-[110px] py-2 text-center">
-                            Palpite
-                          </TableHead>
-                          <TableHead className="w-[110px] py-2 text-center">
-                            Oficial
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {group.predictions.map((prediction) => (
-                          <TableRow key={prediction.matchId}>
-                            <TableCell className="py-2">
-                              <span className="font-medium">
-                                {prediction.homeTeam}
-                              </span>{" "}
-                              <span className="text-[color:var(--text-muted)]">
-                                x
-                              </span>{" "}
-                              <span className="font-medium">
-                                {prediction.awayTeam}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-2 text-center font-semibold">
-                              {prediction.predictedScore}
-                            </TableCell>
-                            <TableCell className="py-2 text-center">
-                              {prediction.officialScore === "-" ? (
-                                <span className="text-xs text-[color:var(--text-muted)]">
-                                  Pendente
-                                </span>
-                              ) : (
-                                <Badge variant="neutral" size="small">
-                                  {prediction.officialScore}
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-4">
+                    {groupPredictionsBySection(
+                      group.phaseId,
+                      group.predictions,
+                    ).map((section) => (
+                      <div key={section.id} className="space-y-2">
+                        {section.label ? (
+                          <div className="text-xs font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
+                            {section.label}
+                          </div>
+                        ) : null}
+                        <MatchPredictionTable
+                          predictions={section.predictions}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </section>
               ))}
