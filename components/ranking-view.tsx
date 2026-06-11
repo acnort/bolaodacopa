@@ -16,7 +16,7 @@ import { getSortedPhases, getTeamName } from "@/lib/domain/selectors";
 import {
   buildLeaderboard,
   buildScoreEntries,
-  isMatchResultPublic,
+  isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
 import type { AppSnapshot } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
@@ -120,7 +120,7 @@ export function RankingView({
                   </TableHeader>
                   <TableBody>
                     {leaderboard.map((entry) => {
-                      const completedPredictions =
+                      const visiblePredictions =
                         activeSnapshot.matchPredictions
                           .filter((prediction) => {
                             if (prediction.userId !== entry.userId)
@@ -129,13 +129,12 @@ export function RankingView({
                             const match = activeSnapshot.matches.find(
                               (item) => item.id === prediction.matchId,
                             );
-                            const result = resultsByMatchId.get(
-                              prediction.matchId,
+                            const rule = activeSnapshot.rules.find(
+                              (item) => item.phaseId === match?.phaseId,
                             );
 
-                            return isMatchResultPublic(
-                              match,
-                              result,
+                            return isPhasePredictionVisible(
+                              rule,
                               visibleAtDate,
                             );
                           })
@@ -200,7 +199,7 @@ export function RankingView({
                           <TableCell className="text-right">
                             <RankingRowPredictionsDialog
                               displayName={entry.displayName}
-                              predictions={completedPredictions}
+                              predictions={visiblePredictions}
                             />
                           </TableCell>
                         </TableRow>

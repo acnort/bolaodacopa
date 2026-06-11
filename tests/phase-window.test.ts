@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { sampleSnapshot } from "@/lib/data/sample-data";
 import { getSortedPhases } from "@/lib/domain/selectors";
-import { isRuleOpen } from "@/lib/domain/scoring";
+import { isPhasePredictionVisible, isRuleOpen } from "@/lib/domain/scoring";
 import type { PredictionRule } from "@/lib/domain/types";
 
 describe("window validation", () => {
@@ -26,6 +26,18 @@ describe("window validation", () => {
 
     expect(isRuleOpen(rule, new Date("2026-06-05T00:00:00.000Z"))).toBe(true);
     expect(isRuleOpen(rule, new Date("2026-06-11T00:00:00.000Z"))).toBe(false);
+    expect(
+      isPhasePredictionVisible(
+        rule,
+        new Date("2026-06-10T00:00:00.000Z"),
+      ),
+    ).toBe(false);
+    expect(
+      isPhasePredictionVisible(
+        rule,
+        new Date("2026-06-10T00:00:01.000Z"),
+      ),
+    ).toBe(true);
   });
 
   it("places final podium predictions before match phases", () => {

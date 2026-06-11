@@ -22,6 +22,16 @@ export function isRuleOpen(rule: PredictionRule, now = new Date()) {
   return opensAt <= now && now <= closesAt && rule.status === "active";
 }
 
+export function isPhasePredictionVisible(
+  rule: Pick<PredictionRule, "closesAt"> | undefined,
+  now = new Date(),
+) {
+  if (!rule) return false;
+
+  const closesAt = new Date(rule.closesAt).getTime();
+  return Number.isFinite(closesAt) && closesAt < now.getTime();
+}
+
 function isPastDate(value: string | undefined, now: Date) {
   if (!value) return false;
 

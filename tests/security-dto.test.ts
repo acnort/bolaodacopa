@@ -31,10 +31,31 @@ describe("security DTOs", () => {
     );
   });
 
-  it("does not expose match predictions before results are public", async () => {
+  it("does not expose predictions before phase windows close", async () => {
     const snapshot = await getPublicRankingSnapshot(new Date("2026-01-01"));
 
     expect(snapshot.matchPredictions).toHaveLength(0);
     expect(snapshot.placementPredictions).toHaveLength(0);
+  });
+
+  it("exposes placement predictions after the podium window closes", async () => {
+    const snapshot = await getPublicRankingSnapshot(
+      new Date("2026-06-11T15:00:00.000Z"),
+    );
+
+    expect(snapshot.placementPredictions).toHaveLength(3);
+    expect(snapshot.matchPredictions).toHaveLength(0);
+  });
+
+  it("exposes match predictions only after their phase window closes", async () => {
+    const beforeClose = await getPublicRankingSnapshot(
+      new Date("2026-06-16T00:00:00.000Z"),
+    );
+    const afterClose = await getPublicRankingSnapshot(
+      new Date("2026-07-01T03:00:00.000Z"),
+    );
+
+    expect(beforeClose.matchPredictions).toHaveLength(0);
+    expect(afterClose.matchPredictions).toHaveLength(9);
   });
 });

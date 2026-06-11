@@ -9,7 +9,7 @@ import path from "path";
 import {
   buildLeaderboard,
   buildScoreEntries,
-  isMatchResultPublic,
+  isPhasePredictionVisible,
   isRuleOpen,
 } from "@/lib/domain/scoring";
 import type {
@@ -364,28 +364,31 @@ function getSensitiveEmptySnapshot(snapshot: AppSnapshot): AppSnapshot {
   };
 }
 
-function isPublishedDate(value: string | undefined, now: Date) {
-  if (!value) return false;
-
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) && timestamp <= now.getTime();
-}
-
 function getPublicMatchPredictions(snapshot: AppSnapshot, now: Date) {
-  const resultsByMatch = new Map(
-    snapshot.results.map((result) => [result.matchId, result]),
-  );
   const matchesById = new Map(
     snapshot.matches.map((match) => [match.id, match]),
   );
-
-  return snapshot.matchPredictions.filter((prediction) =>
-    isMatchResultPublic(
-      matchesById.get(prediction.matchId),
-      resultsByMatch.get(prediction.matchId),
-      now,
-    ),
+  const rulesByPhaseId = new Map(
+    snapshot.rules.map((rule) => [rule.phaseId, rule]),
   );
+
+  return snapshot.matchPredictions.filter((prediction) => {
+    const match = matchesById.get(prediction.matchId);
+    return isPhasePredictionVisible(
+      match ? rulesByPhaseId.get(match.phaseId) : undefined,
+      now,
+    );
+  });
+}
+
+function getPublicPlacementPredictions(snapshot: AppSnapshot, now: Date) {
+  const placementRule = snapshot.rules.find(
+    (rule) => rule.enablePlacementPredictions,
+  );
+
+  return isPhasePredictionVisible(placementRule, now)
+    ? snapshot.placementPredictions
+    : [];
 }
 
 export async function getPublicRankingSnapshot(visibleAt = new Date()) {
@@ -401,12 +404,7 @@ export async function getPublicRankingSnapshot(visibleAt = new Date()) {
       approvedUserIds.has(membership.userId),
     ),
     matchPredictions: getPublicMatchPredictions(snapshot, visibleAt),
-    placementPredictions: isPublishedDate(
-      snapshot.placementResult.publishedAt,
-      visibleAt,
-    )
-      ? snapshot.placementPredictions
-      : [],
+    placementPredictions: getPublicPlacementPredictions(snapshot, visibleAt),
   };
 }
 

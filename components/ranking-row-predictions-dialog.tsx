@@ -71,7 +71,7 @@ export function RankingRowPredictionsDialog({
         <DialogHeader>
           <DialogTitle>{displayName}</DialogTitle>
           <DialogDescription>
-            Somente partidas já iniciadas e com resultado publicado.
+            Palpites liberados após o fechamento da janela da fase.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,9 +126,15 @@ export function RankingRowPredictionsDialog({
                               {prediction.predictedScore}
                             </TableCell>
                             <TableCell className="py-2 text-center">
-                              <Badge variant="neutral" size="small">
-                                {prediction.officialScore}
-                              </Badge>
+                              {prediction.officialScore === "-" ? (
+                                <span className="text-xs text-[color:var(--text-muted)]">
+                                  Pendente
+                                </span>
+                              ) : (
+                                <Badge variant="neutral" size="small">
+                                  {prediction.officialScore}
+                                </Badge>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
