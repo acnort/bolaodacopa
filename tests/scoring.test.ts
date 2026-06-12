@@ -51,7 +51,7 @@ describe("scoring", () => {
 
     expect(result.points).toBe(5);
     expect(result.exactHit).toBe(true);
-    expect(result.outcomeHit).toBe(true);
+    expect(result.outcomeHit).toBe(false);
   });
 
   it("awards outcome-only points when the winner is correct", () => {

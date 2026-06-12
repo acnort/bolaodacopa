@@ -27,7 +27,7 @@ import {
   buildLiveLeaderboardMovements,
   isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
-import type { AppSnapshot, MatchPrediction } from "@/lib/domain/types";
+import type { AppSnapshot, Match, MatchPrediction } from "@/lib/domain/types";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 const UPCOMING_MATCH_WINDOW_MS = 30 * 60 * 1000;
@@ -80,6 +80,24 @@ function getMatchStatusLabel(kickoffAt: string, now: Date) {
   }
 
   return `Começa em ${minutesToKickoff} min`;
+}
+
+function getMatchStartsInMs(match: Pick<Match, "kickoffAt">, now: Date) {
+  return new Date(match.kickoffAt).getTime() - now.getTime();
+}
+
+function isRecentlyStartedMatch(
+  match: Pick<Match, "kickoffAt" | "status">,
+  now: Date,
+) {
+  if (match.status === "completed") return false;
+
+  const startsInMs = getMatchStartsInMs(match, now);
+  return (
+    Number.isFinite(startsInMs) &&
+    startsInMs <= 0 &&
+    startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS
+  );
 }
 
 function getUpdatedAgoLabel(updatedAt: string | undefined, now: Date) {
@@ -198,16 +216,10 @@ export function RankingView({
   };
   const featuredMatches = activeSnapshot.matches
     .filter((match) => {
-      const result = resultsByMatchId.get(match.id);
-      const kickoffTime = new Date(match.kickoffAt).getTime();
-      const startsInMs = kickoffTime - currentTime.getTime();
-      const isNearKickoff =
-        Number.isFinite(startsInMs) &&
-        startsInMs <= 0 &&
-        startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS;
+      const startsInMs = getMatchStartsInMs(match, currentTime);
 
       if (match.status === "in_progress") return true;
-      if (match.status !== "completed" && result && isNearKickoff) return true;
+      if (isRecentlyStartedMatch(match, currentTime)) return true;
       if (match.status !== "scheduled") return false;
 
       return (
@@ -264,7 +276,7 @@ export function RankingView({
                         Placar exato
                       </TableHead>
                       <TableHead className="text-center">
-                        Acertou vencedor
+                        Acertou vencedor / empate
                       </TableHead>
                       <TableHead className="text-center font-bold">
                         Pontos
@@ -428,9 +440,9 @@ export function RankingView({
               <div className="text-lg font-bold">Regras</div>
               <p className="text-sm text-[color:var(--text-muted)]">
                 Placar exato vale quando os dois placares batem. Acertou
-                vencedor vale quando o vencedor ou empate está correto, mas o
-                placar não. Se o placar exato bater, vale só Placar exato, sem
-                somar com Acertou vencedor.
+                vencedor / empate vale quando o vencedor ou empate está correto,
+                mas o placar não. Se o placar exato bater, vale só Placar exato,
+                sem somar com Acertou vencedor / empate.
               </p>
               <p className="text-sm text-[color:var(--text-muted)]">
                 Palpites de cada fase só são aceitos antes da primeira partida
@@ -455,7 +467,7 @@ export function RankingView({
                             points={rule.scoring.exactScore}
                           />
                           <RulePill
-                            label="Acertou vencedor"
+                            label="Acertou vencedor / empate"
                             points={rule.scoring.correctOutcome}
                           />
                         </>
@@ -486,7 +498,9 @@ export function RankingView({
                   Não pontua quando nem o placar nem o vencedor/empate forem
                   acertados.
                 </p>
-                <p>Desempate: Placar exato, depois Acertou vencedor.</p>
+                <p>
+                  Desempate: Placar exato, depois Acertou vencedor / empate.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -505,15 +519,9 @@ export function RankingView({
               ) : (
                 featuredMatches.map((match) => {
                   const result = resultsByMatchId.get(match.id);
-                  const kickoffTime = new Date(match.kickoffAt).getTime();
-                  const startsInMs = kickoffTime - currentTime.getTime();
                   const isLive =
                     match.status === "in_progress" ||
-                    (match.status !== "completed" &&
-                      Boolean(result) &&
-                      Number.isFinite(startsInMs) &&
-                      startsInMs <= 0 &&
-                      startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS);
+                    isRecentlyStartedMatch(match, currentTime);
                   const homeTeam = match.homeTeamId
                     ? teamsById.get(match.homeTeamId)
                     : undefined;

@@ -48,7 +48,10 @@ export function AdminPhaseRulesForm({
                       {formatPhaseWindow(phase.startsAt, phase.endsAt)}
                     </div>
                   </div>
-                  <Badge variant={rule.status === "active" ? "success" : "neutral"} size="small">
+                  <Badge
+                    variant={rule.status === "active" ? "success" : "neutral"}
+                    size="small"
+                  >
                     {rule.status === "active" ? "Ativa" : "Fechada"}
                   </Badge>
                 </div>
@@ -65,7 +68,11 @@ export function AdminPhaseRulesForm({
                   name={`enablePlacementPredictions:${phase.id}`}
                   value={String(rule.enablePlacementPredictions)}
                 />
-                <input type="hidden" name={`status:${phase.id}`} value={rule.status} />
+                <input
+                  type="hidden"
+                  name={`status:${phase.id}`}
+                  value={rule.status}
+                />
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -90,8 +97,16 @@ export function AdminPhaseRulesForm({
 
                 {isPodium ? (
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <input type="hidden" name={`exactScore:${phase.id}`} value={0} />
-                    <input type="hidden" name={`correctOutcome:${phase.id}`} value={0} />
+                    <input
+                      type="hidden"
+                      name={`exactScore:${phase.id}`}
+                      value={0}
+                    />
+                    <input
+                      type="hidden"
+                      name={`correctOutcome:${phase.id}`}
+                      value={0}
+                    />
                     <div className="space-y-2">
                       <label className="text-sm text-[color:var(--text-muted)]">
                         Campeão
@@ -128,9 +143,21 @@ export function AdminPhaseRulesForm({
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <input type="hidden" name={`champion:${phase.id}`} value={0} />
-                    <input type="hidden" name={`runnerUp:${phase.id}`} value={0} />
-                    <input type="hidden" name={`thirdPlace:${phase.id}`} value={0} />
+                    <input
+                      type="hidden"
+                      name={`champion:${phase.id}`}
+                      value={0}
+                    />
+                    <input
+                      type="hidden"
+                      name={`runnerUp:${phase.id}`}
+                      value={0}
+                    />
+                    <input
+                      type="hidden"
+                      name={`thirdPlace:${phase.id}`}
+                      value={0}
+                    />
                     <div className="space-y-2">
                       <label className="text-sm text-[color:var(--text-muted)]">
                         Placar exato
@@ -144,7 +171,7 @@ export function AdminPhaseRulesForm({
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm text-[color:var(--text-muted)]">
-                        Acertou vencedor
+                        Acertou vencedor / empate
                       </label>
                       <Input
                         name={`correctOutcome:${phase.id}`}

@@ -561,11 +561,6 @@ async function saveProviderSyncState(key: string, syncedAt: string) {
 }
 
 export async function getResultsLastUpdatedAt() {
-  const lastResultsUpdate = await getProviderSyncState(
-    RESULTS_UPDATED_STATE_KEY,
-  );
-  if (lastResultsUpdate) return lastResultsUpdate;
-
   const providerName = getResultsProviderName();
   const providerKeys = [
     getProviderSyncStateKey(providerName),

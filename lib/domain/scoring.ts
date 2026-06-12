@@ -67,9 +67,10 @@ export function scoreMatchPrediction(
     prediction.homeScore === result.homeScore &&
     prediction.awayScore === result.awayScore;
 
-  const outcomeHit =
+  const correctOutcome =
     getOutcome(prediction.homeScore, prediction.awayScore) ===
     getOutcome(result.homeScore, result.awayScore);
+  const outcomeHit = !exactHit && correctOutcome;
 
   const points = exactHit
     ? rule.scoring.exactScore
@@ -89,7 +90,7 @@ export function scoreMatchPrediction(
     description: exactHit
       ? "Placar exato"
       : outcomeHit
-        ? "Acertou vencedor"
+        ? "Acertou vencedor / empate"
         : "Sem pontos",
   };
 }

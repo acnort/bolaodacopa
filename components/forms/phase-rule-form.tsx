@@ -14,7 +14,7 @@ const initialState: ActionResult = { ok: false, message: "" };
 
 export function PhaseRuleForm({
   rule,
-  podium
+  podium,
 }: {
   rule: PredictionRule;
   podium?: boolean;
@@ -52,10 +52,7 @@ export function PhaseRuleForm({
           <label className="text-sm font-medium text-[color:var(--text-strong)]">
             Abertura
           </label>
-          <BrazilianDateTimeInput
-            name="opensAt"
-            defaultValue={rule.opensAt}
-          />
+          <BrazilianDateTimeInput name="opensAt" defaultValue={rule.opensAt} />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-[color:var(--text-strong)]">
@@ -70,30 +67,65 @@ export function PhaseRuleForm({
       {podium ? (
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Campeão</label>
-            <Input name="champion" type="number" min={0} defaultValue={rule.scoring.champion} />
+            <label className="text-sm text-[color:var(--text-muted)]">
+              Campeão
+            </label>
+            <Input
+              name="champion"
+              type="number"
+              min={0}
+              defaultValue={rule.scoring.champion}
+            />
           </div>
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Vice</label>
-            <Input name="runnerUp" type="number" min={0} defaultValue={rule.scoring.runnerUp} />
+            <label className="text-sm text-[color:var(--text-muted)]">
+              Vice
+            </label>
+            <Input
+              name="runnerUp"
+              type="number"
+              min={0}
+              defaultValue={rule.scoring.runnerUp}
+            />
           </div>
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Terceiro</label>
-            <Input name="thirdPlace" type="number" min={0} defaultValue={rule.scoring.thirdPlace} />
+            <label className="text-sm text-[color:var(--text-muted)]">
+              Terceiro
+            </label>
+            <Input
+              name="thirdPlace"
+              type="number"
+              min={0}
+              defaultValue={rule.scoring.thirdPlace}
+            />
           </div>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Placar exato</label>
-            <Input name="exactScore" type="number" min={0} defaultValue={rule.scoring.exactScore} />
+            <label className="text-sm text-[color:var(--text-muted)]">
+              Placar exato
+            </label>
+            <Input
+              name="exactScore"
+              type="number"
+              min={0}
+              defaultValue={rule.scoring.exactScore}
+            />
           </div>
           <div>
-            <label className="text-sm text-[color:var(--text-muted)]">Acertou vencedor</label>
-            <Input name="correctOutcome" type="number" min={0} defaultValue={rule.scoring.correctOutcome} />
+            <label className="text-sm text-[color:var(--text-muted)]">
+              Acertou vencedor / empate
+            </label>
+            <Input
+              name="correctOutcome"
+              type="number"
+              min={0}
+              defaultValue={rule.scoring.correctOutcome}
+            />
           </div>
         </div>
-      )}      
+      )}
       <input type="hidden" name="status" value={rule.status} />
       <FormFeedback state={state} />
       <SubmitButton className="w-full" pendingLabel="Atualizando fase...">
