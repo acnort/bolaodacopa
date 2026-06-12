@@ -127,15 +127,13 @@ function addDaysToDateKey(dateKey: string, days: number) {
   return getDateKeyInAppTimeZone(date.toISOString());
 }
 
-function getDaySelectorLabel(dateKey: string, todayKey: string) {
+function getDaySelectorLabel(dateKey: string) {
   const date = getDateFromDateKey(dateKey);
-  const formatted = new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
     timeZone: APP_TIME_ZONE,
   }).format(date);
-
-  return dateKey === todayKey ? `Hoje, ${formatted}` : formatted;
 }
 
 function getFeaturedMatchStatusLabel({
@@ -603,7 +601,7 @@ export function RankingView({
                     onClick={openDatePicker}
                   >
                     <CalendarDays className="h-4 w-4" />
-                    {getDaySelectorLabel(selectedDateKey, todayDateKey)}
+                    {getDaySelectorLabel(selectedDateKey)}
                   </Button>
                   <Button
                     type="button"
