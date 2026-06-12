@@ -418,16 +418,16 @@ export function RankingView({
 
                   return (
                     <div key={entry.userId} className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-3">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                        <div className="min-w-0 overflow-hidden">
+                          <div className="flex min-w-0 items-center gap-3">
                             <UserAvatar
                               name={entry.displayName}
                               avatarUrl={entry.avatarUrl}
-                              className="h-10 w-10 text-xs"
+                              className="h-10 w-10 shrink-0 text-xs"
                             />
-                            <div className="min-w-0">
-                              <div className="truncate font-semibold text-[color:var(--text-strong)]">
+                            <div className="w-0 min-w-0 flex-1 overflow-hidden">
+                              <div className="line-clamp-2 max-w-full text-sm leading-snug font-semibold [overflow-wrap:anywhere] break-words text-[color:var(--text-strong)] sm:text-base">
                                 {entry.displayName}
                               </div>
                               <div className="mt-1 flex items-center gap-2">
@@ -728,6 +728,16 @@ export function RankingView({
                   const awayTeam = match.awayTeamId
                     ? teamsById.get(match.awayTeamId)
                     : undefined;
+                  const homeTeamName = getTeamOrPlaceholder(
+                    activeSnapshot.teams,
+                    match.homeTeamId,
+                    match.homePlaceholder,
+                  );
+                  const awayTeamName = getTeamOrPlaceholder(
+                    activeSnapshot.teams,
+                    match.awayTeamId,
+                    match.awayPlaceholder,
+                  );
                   const currentUserPrediction =
                     currentUserPredictionsByMatchId.get(match.id);
 
@@ -736,30 +746,20 @@ export function RankingView({
                       key={match.id}
                       className="rounded-lg bg-[color:var(--surface-muted)] p-3"
                     >
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <TeamFlag
-                              code={homeTeam?.code}
-                              className="h-4 w-4 shrink-0 rounded-full"
-                            />
-                            <span className="truncate text-sm font-semibold">
-                              {getTeamOrPlaceholder(
-                                activeSnapshot.teams,
-                                match.homeTeamId,
-                                match.homePlaceholder,
-                              )}
-                            </span>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2">
+                        <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                          <TeamFlag
+                            code={homeTeam?.code}
+                            className="h-5 w-5 shrink-0 rounded-full"
+                          />
+                          <div className="line-clamp-2 min-h-[2.25rem] text-sm leading-tight font-semibold [overflow-wrap:anywhere] break-words text-[color:var(--text-strong)]">
+                            {homeTeamName}
                           </div>
                         </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
-                            {result
-                              ? `${result.homeScore} x ${result.awayScore}`
-                              : "x"}
-                          </div>
+
+                        <div className="flex min-w-0 flex-col items-center gap-1 pt-0.5">
                           <span
-                            className={`text-[10px] font-bold tracking-[0.14em] whitespace-nowrap uppercase ${
+                            className={`max-w-24 text-center text-[10px] leading-tight font-bold tracking-[0.08em] uppercase ${
                               isLive
                                 ? "text-[color:var(--success-strong)]"
                                 : "text-[color:var(--accent-strong)]"
@@ -771,20 +771,20 @@ export function RankingView({
                               now: currentTime,
                             })}
                           </span>
+                          <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
+                            {result
+                              ? `${result.homeScore} x ${result.awayScore}`
+                              : "x"}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="truncate text-right text-sm font-semibold">
-                              {getTeamOrPlaceholder(
-                                activeSnapshot.teams,
-                                match.awayTeamId,
-                                match.awayPlaceholder,
-                              )}
-                            </span>
-                            <TeamFlag
-                              code={awayTeam?.code}
-                              className="h-4 w-4 shrink-0 rounded-full"
-                            />
+
+                        <div className="flex min-w-0 flex-col items-center gap-2 text-center">
+                          <TeamFlag
+                            code={awayTeam?.code}
+                            className="h-5 w-5 shrink-0 rounded-full"
+                          />
+                          <div className="line-clamp-2 min-h-[2.25rem] text-sm leading-tight font-semibold [overflow-wrap:anywhere] break-words text-[color:var(--text-strong)]">
+                            {awayTeamName}
                           </div>
                         </div>
                       </div>
