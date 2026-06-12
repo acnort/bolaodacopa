@@ -465,18 +465,18 @@ export function RankingView({
                           />
                         </div>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-                        <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-3 py-2">
-                          <div className="text-[10px] font-bold tracking-[0.12em] text-[color:var(--text-muted)] uppercase">
+                      <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-center">
+                        <div className="min-w-0 overflow-hidden rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-2 sm:px-3">
+                          <div className="text-[9px] leading-tight font-bold tracking-[0.06em] text-[color:var(--text-muted)] uppercase sm:text-[10px] sm:tracking-[0.12em]">
                             Placar exato
                           </div>
                           <div className="mt-1 text-base font-bold">
                             {entry.exactHits}
                           </div>
                         </div>
-                        <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-3 py-2">
-                          <div className="text-[10px] font-bold tracking-[0.12em] text-[color:var(--text-muted)] uppercase">
-                            Vencedor / empate
+                        <div className="min-w-0 overflow-hidden rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-2 py-2 sm:px-3">
+                          <div className="text-[9px] leading-tight font-bold tracking-[0.06em] text-[color:var(--text-muted)] uppercase sm:text-[10px] sm:tracking-[0.12em]">
+                            Vencedor/empate
                           </div>
                           <div className="mt-1 text-base font-bold">
                             {entry.outcomeHits}
