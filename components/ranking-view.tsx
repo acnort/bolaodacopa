@@ -295,6 +295,80 @@ export function RankingView({
       rule: activeSnapshot.rules.find((item) => item.phaseId === phase.id),
     }))
     .filter((item) => item.rule);
+  const getPredictionDialogData = (userId: string) => {
+    const visiblePredictions = activeSnapshot.matchPredictions
+      .filter((prediction) => {
+        if (prediction.userId !== userId) return false;
+
+        const match = activeSnapshot.matches.find(
+          (item) => item.id === prediction.matchId,
+        );
+        const rule = activeSnapshot.rules.find(
+          (item) => item.phaseId === match?.phaseId,
+        );
+
+        return isPhasePredictionVisible(rule, visibleAtDate);
+      })
+      .map((prediction) => {
+        const match = activeSnapshot.matches.find(
+          (item) => item.id === prediction.matchId,
+        );
+        const result = resultsByMatchId.get(prediction.matchId);
+        const phase = phases.find((item) => item.id === match?.phaseId);
+        const homeTeam = match?.homeTeamId
+          ? teamsById.get(match.homeTeamId)
+          : undefined;
+        const awayTeam = match?.awayTeamId
+          ? teamsById.get(match.awayTeamId)
+          : undefined;
+
+        return {
+          matchId: prediction.matchId,
+          phaseId: match?.phaseId ?? "",
+          phaseName: phase?.name ?? "Sem fase",
+          phaseOrder: phase?.order ?? Number.MAX_SAFE_INTEGER,
+          groupName: match?.stageGroup,
+          kickoffAt: match?.kickoffAt ?? "",
+          homeTeam: getTeamName(activeSnapshot.teams, match?.homeTeamId),
+          homeTeamCode: homeTeam?.code,
+          awayTeam: getTeamName(activeSnapshot.teams, match?.awayTeamId),
+          awayTeamCode: awayTeam?.code,
+          predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
+          officialScore: result
+            ? `${result.homeScore} x ${result.awayScore}`
+            : "-",
+        };
+      });
+    const placementPrediction = activeSnapshot.placementPredictions.find(
+      (prediction) => prediction.userId === userId,
+    );
+    const visiblePlacementPrediction = placementPrediction
+      ? {
+          champion: getTeamPredictionView(placementPrediction.championTeamId),
+          runnerUp: getTeamPredictionView(placementPrediction.runnerUpTeamId),
+          thirdPlace: getTeamPredictionView(
+            placementPrediction.thirdPlaceTeamId,
+          ),
+          officialChampion: activeSnapshot.placementResult.publishedAt
+            ? getTeamPredictionView(
+                activeSnapshot.placementResult.championTeamId,
+              )
+            : undefined,
+          officialRunnerUp: activeSnapshot.placementResult.publishedAt
+            ? getTeamPredictionView(
+                activeSnapshot.placementResult.runnerUpTeamId,
+              )
+            : undefined,
+          officialThirdPlace: activeSnapshot.placementResult.publishedAt
+            ? getTeamPredictionView(
+                activeSnapshot.placementResult.thirdPlaceTeamId,
+              )
+            : undefined,
+        }
+      : undefined;
+
+    return { visiblePredictions, visiblePlacementPrediction };
+  };
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -323,7 +397,7 @@ export function RankingView({
         <Badge variant="accent">Sandbox ativo: ranking simulado</Badge>
       ) : null}
 
-      <div className="grid gap-12 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_320px] xl:gap-12">
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -333,7 +407,88 @@ export function RankingView({
               </p>
             </CardHeader>
             <CardContent className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)] p-0">
-              <div className="overflow-x-auto">
+              <div className="divide-y divide-[color:var(--border-subtle)] md:hidden">
+                {leaderboard.map((entry, index) => {
+                  const liveMovement = liveMovements.get(entry.userId);
+                  const showPosition =
+                    index === 0 ||
+                    leaderboard[index - 1]?.position !== entry.position;
+                  const { visiblePredictions, visiblePlacementPrediction } =
+                    getPredictionDialogData(entry.userId);
+
+                  return (
+                    <div key={entry.userId} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3">
+                            <UserAvatar
+                              name={entry.displayName}
+                              avatarUrl={entry.avatarUrl}
+                              className="h-10 w-10 text-xs"
+                            />
+                            <div className="min-w-0">
+                              <div className="truncate font-semibold text-[color:var(--text-strong)]">
+                                {entry.displayName}
+                              </div>
+                              <div className="mt-1 flex items-center gap-2">
+                                {showPosition ? (
+                                  <span
+                                    className={`inline-flex min-w-9 items-center justify-center rounded-md px-2 py-1 text-sm font-semibold ${getPositionClasses(entry.position)}`}
+                                  >
+                                    {entry.position}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex min-w-9" />
+                                )}
+                                {liveMovement ? (
+                                  <LiveMovementPill
+                                    positionDelta={liveMovement.positionDelta}
+                                  />
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-start gap-2">
+                          <div className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-center">
+                            <div className="text-[10px] font-bold tracking-[0.14em] text-[color:var(--text-muted)] uppercase">
+                              Pontos
+                            </div>
+                            <div className="text-lg leading-tight font-black">
+                              {entry.totalPoints}
+                            </div>
+                          </div>
+                          <RankingRowPredictionsDialog
+                            displayName={entry.displayName}
+                            matchPredictions={visiblePredictions}
+                            placementPrediction={visiblePlacementPrediction}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                        <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-3 py-2">
+                          <div className="text-[10px] font-bold tracking-[0.12em] text-[color:var(--text-muted)] uppercase">
+                            Placar exato
+                          </div>
+                          <div className="mt-1 text-base font-bold">
+                            {entry.exactHits}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-[color:var(--border-subtle)] bg-[color:var(--surface-muted)] px-3 py-2">
+                          <div className="text-[10px] font-bold tracking-[0.12em] text-[color:var(--text-muted)] uppercase">
+                            Vencedor / empate
+                          </div>
+                          <div className="mt-1 text-base font-bold">
+                            {entry.outcomeHits}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader className="bg-[color:var(--surface-muted)]">
                     <TableRow>
@@ -357,95 +512,8 @@ export function RankingView({
                       const showPosition =
                         index === 0 ||
                         leaderboard[index - 1]?.position !== entry.position;
-                      const visiblePredictions = activeSnapshot.matchPredictions
-                        .filter((prediction) => {
-                          if (prediction.userId !== entry.userId) return false;
-
-                          const match = activeSnapshot.matches.find(
-                            (item) => item.id === prediction.matchId,
-                          );
-                          const rule = activeSnapshot.rules.find(
-                            (item) => item.phaseId === match?.phaseId,
-                          );
-
-                          return isPhasePredictionVisible(rule, visibleAtDate);
-                        })
-                        .map((prediction) => {
-                          const match = activeSnapshot.matches.find(
-                            (item) => item.id === prediction.matchId,
-                          );
-                          const result = resultsByMatchId.get(
-                            prediction.matchId,
-                          );
-                          const phase = phases.find(
-                            (item) => item.id === match?.phaseId,
-                          );
-                          const homeTeam = match?.homeTeamId
-                            ? teamsById.get(match.homeTeamId)
-                            : undefined;
-                          const awayTeam = match?.awayTeamId
-                            ? teamsById.get(match.awayTeamId)
-                            : undefined;
-
-                          return {
-                            matchId: prediction.matchId,
-                            phaseId: match?.phaseId ?? "",
-                            phaseName: phase?.name ?? "Sem fase",
-                            phaseOrder: phase?.order ?? Number.MAX_SAFE_INTEGER,
-                            groupName: match?.stageGroup,
-                            kickoffAt: match?.kickoffAt ?? "",
-                            homeTeam: getTeamName(
-                              activeSnapshot.teams,
-                              match?.homeTeamId,
-                            ),
-                            homeTeamCode: homeTeam?.code,
-                            awayTeam: getTeamName(
-                              activeSnapshot.teams,
-                              match?.awayTeamId,
-                            ),
-                            awayTeamCode: awayTeam?.code,
-                            predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
-                            officialScore: result
-                              ? `${result.homeScore} x ${result.awayScore}`
-                              : "-",
-                          };
-                        });
-                      const placementPrediction =
-                        activeSnapshot.placementPredictions.find(
-                          (prediction) => prediction.userId === entry.userId,
-                        );
-                      const visiblePlacementPrediction = placementPrediction
-                        ? {
-                            champion: getTeamPredictionView(
-                              placementPrediction.championTeamId,
-                            ),
-                            runnerUp: getTeamPredictionView(
-                              placementPrediction.runnerUpTeamId,
-                            ),
-                            thirdPlace: getTeamPredictionView(
-                              placementPrediction.thirdPlaceTeamId,
-                            ),
-                            officialChampion: activeSnapshot.placementResult
-                              .publishedAt
-                              ? getTeamPredictionView(
-                                  activeSnapshot.placementResult.championTeamId,
-                                )
-                              : undefined,
-                            officialRunnerUp: activeSnapshot.placementResult
-                              .publishedAt
-                              ? getTeamPredictionView(
-                                  activeSnapshot.placementResult.runnerUpTeamId,
-                                )
-                              : undefined,
-                            officialThirdPlace: activeSnapshot.placementResult
-                              .publishedAt
-                              ? getTeamPredictionView(
-                                  activeSnapshot.placementResult
-                                    .thirdPlaceTeamId,
-                                )
-                              : undefined,
-                          }
-                        : undefined;
+                      const { visiblePredictions, visiblePlacementPrediction } =
+                        getPredictionDialogData(entry.userId);
 
                       return (
                         <TableRow key={entry.userId}>

@@ -14,8 +14,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Input } from "@/components/ui/input";
-import { formatDateTime, formatSectionDate, getDateKeyInAppTimeZone } from "@/lib/formatters";
-import type { ActionResult, Match, Phase, PlacementPrediction, PredictionRule, Team } from "@/lib/domain/types";
+import {
+  formatDateTime,
+  formatSectionDate,
+  getDateKeyInAppTimeZone,
+} from "@/lib/formatters";
+import type {
+  ActionResult,
+  Match,
+  Phase,
+  PlacementPrediction,
+  PredictionRule,
+  Team,
+} from "@/lib/domain/types";
 import { getTeamOrPlaceholder } from "@/lib/domain/selectors";
 
 const initialState: ActionResult = { ok: false, message: "" };
@@ -91,7 +102,7 @@ function MatchCard({
       <CardHeader className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <div className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
               Rodada
             </div>
             <div className="mt-1 text-sm font-medium text-[color:var(--text-strong)]">
@@ -99,7 +110,7 @@ function MatchCard({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <div className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
               Data
             </div>
             <div className="mt-1 text-sm font-medium text-[color:var(--text-strong)]">
@@ -109,18 +120,26 @@ function MatchCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex justify-between">
-          <div className="flex items-center gap-3">
-            <TeamFlag code={homeTeam?.code} />
-            <span className="font-semibold text-[color:var(--text-strong)]">
-              {getTeamOrPlaceholder(teams, match.homeTeamId, match.homePlaceholder)}
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <TeamFlag code={homeTeam?.code} className="shrink-0" />
+            <span className="truncate font-semibold text-[color:var(--text-strong)]">
+              {getTeamOrPlaceholder(
+                teams,
+                match.homeTeamId,
+                match.homePlaceholder,
+              )}
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-[color:var(--text-strong)]">
-              {getTeamOrPlaceholder(teams, match.awayTeamId, match.awayPlaceholder)}
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            <span className="truncate text-right font-semibold text-[color:var(--text-strong)]">
+              {getTeamOrPlaceholder(
+                teams,
+                match.awayTeamId,
+                match.awayPlaceholder,
+              )}
             </span>
-            <TeamFlag code={awayTeam?.code} />
+            <TeamFlag code={awayTeam?.code} className="shrink-0" />
           </div>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -176,7 +195,10 @@ export function PhasePredictionsForm({
   previousPhaseHref?: string;
   nextPhaseHref?: string;
 }) {
-  const [state, formAction] = useActionState(savePhasePredictionsBatch, initialState);
+  const [state, formAction] = useActionState(
+    savePhasePredictionsBatch,
+    initialState,
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const disabled =
@@ -203,9 +225,18 @@ export function PhasePredictionsForm({
 
     const placementEntries = isPlacementPhase
       ? [
-          ["championTeamId", String(placementPrediction?.championTeamId ?? "").trim()],
-          ["runnerUpTeamId", String(placementPrediction?.runnerUpTeamId ?? "").trim()],
-          ["thirdPlaceTeamId", String(placementPrediction?.thirdPlaceTeamId ?? "").trim()],
+          [
+            "championTeamId",
+            String(placementPrediction?.championTeamId ?? "").trim(),
+          ],
+          [
+            "runnerUpTeamId",
+            String(placementPrediction?.runnerUpTeamId ?? "").trim(),
+          ],
+          [
+            "thirdPlaceTeamId",
+            String(placementPrediction?.thirdPlaceTeamId ?? "").trim(),
+          ],
         ]
       : [];
 
@@ -237,7 +268,9 @@ export function PhasePredictionsForm({
     toast[state.ok ? "success" : "error"](state.message);
 
     if (state.ok && formRef.current) {
-      const currentSnapshot = serializeRelevantFormData(new FormData(formRef.current));
+      const currentSnapshot = serializeRelevantFormData(
+        new FormData(formRef.current),
+      );
       setSavedSnapshot(currentSnapshot);
       setIsDirty(false);
     }
@@ -256,9 +289,11 @@ export function PhasePredictionsForm({
       <input type="hidden" name="competitionId" value={competitionId} />
 
       <Card>
-        <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
-            <div className="text-lg font-bold text-[color:var(--text-muted)]">{phase.name}</div>
+            <div className="text-lg font-bold text-[color:var(--text-muted)]">
+              {phase.name}
+            </div>
             <div className="flex flex-col gap-2 text-sm text-[color:var(--text-muted)] sm:flex-row sm:items-center">
               <span>
                 Fecha em {rule ? formatDateTime(rule.closesAt) : "sem regra"}
@@ -267,7 +302,7 @@ export function PhasePredictionsForm({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {previousPhaseHref ? (
               <Button asChild variant="outline" size="sm">
                 <Link href={previousPhaseHref}>
@@ -305,7 +340,9 @@ export function PhasePredictionsForm({
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm text-[color:var(--text-muted)]">Campeão</label>
+              <label className="text-sm text-[color:var(--text-muted)]">
+                Campeão
+              </label>
               <CustomSelect
                 defaultValue={placementPrediction?.championTeamId}
                 name="championTeamId"
@@ -319,7 +356,9 @@ export function PhasePredictionsForm({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-[color:var(--text-muted)]">Vice</label>
+              <label className="text-sm text-[color:var(--text-muted)]">
+                Vice
+              </label>
               <CustomSelect
                 defaultValue={placementPrediction?.runnerUpTeamId}
                 name="runnerUpTeamId"
@@ -333,7 +372,9 @@ export function PhasePredictionsForm({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-[color:var(--text-muted)]">Terceiro</label>
+              <label className="text-sm text-[color:var(--text-muted)]">
+                Terceiro
+              </label>
               <CustomSelect
                 defaultValue={placementPrediction?.thirdPlaceTeamId}
                 name="thirdPlaceTeamId"
@@ -355,7 +396,7 @@ export function PhasePredictionsForm({
         <div className="space-y-6">
           {sections.map((section) => (
             <div key={section.id} className="space-y-3">
-              <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+              <div className="text-sm font-semibold tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
                 {section.label}
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
@@ -377,7 +418,7 @@ export function PhasePredictionsForm({
 
       {!isPlacementPhase && matches.length === 0 ? (
         <Card>
-          <CardContent className="p-6 text-sm text-[color:var(--text-muted)]">
+          <CardContent className="p-4 text-sm text-[color:var(--text-muted)] sm:p-6">
             Partidas a serem definidas.
           </CardContent>
         </Card>
@@ -388,7 +429,9 @@ export function PhasePredictionsForm({
       {isDirty && !disabled ? (
         <div className="sticky bottom-4 z-20">
           <div className="ml-auto flex w-full items-center justify-between gap-4 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)]/95 px-4 py-3 shadow-[var(--shadow-card)] backdrop-blur">
-            <div className="text-sm text-[color:var(--text-muted)]">Alterações não salvas</div>
+            <div className="text-sm text-[color:var(--text-muted)]">
+              Alterações não salvas
+            </div>
             <SubmitButton pendingLabel="Salvando..." disabled={disabled}>
               Salvar fase
             </SubmitButton>

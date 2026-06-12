@@ -91,7 +91,9 @@ function buildPhaseProgressItems({
       };
     }
 
-    const phaseMatches = snapshot.matches.filter((match) => match.phaseId === phase.id);
+    const phaseMatches = snapshot.matches.filter(
+      (match) => match.phaseId === phase.id,
+    );
     const phaseMatchIds = new Set(phaseMatches.map((match) => match.id));
     const publishedCount = snapshot.results.filter((result) =>
       phaseMatchIds.has(result.matchId),
@@ -131,7 +133,7 @@ function ResultCard({
       <CardHeader className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <div className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
               {match.roundLabel}
             </div>
             <div className="mt-1 text-sm font-medium text-[color:var(--text-strong)]">
@@ -144,7 +146,7 @@ function ResultCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <TeamFlag code={homeTeam?.code} />
             <span className="truncate font-semibold text-[color:var(--text-strong)]">
@@ -156,7 +158,7 @@ function ResultCard({
             </span>
           </div>
 
-          <div className="rounded-lg bg-[color:var(--surface-muted)] px-4 py-2 text-lg font-bold text-[color:var(--text-strong)]">
+          <div className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-base font-bold text-[color:var(--text-strong)] sm:px-4 sm:text-lg">
             {result ? `${result.homeScore} x ${result.awayScore}` : "- x -"}
           </div>
 
@@ -174,7 +176,9 @@ function ResultCard({
 
         <div className="text-sm text-[color:var(--text-muted)]">
           {match.venue || "Estádio a definir"}
-          {result?.publishedAt ? ` · publicado em ${formatDateTime(result.publishedAt)}` : ""}
+          {result?.publishedAt
+            ? ` · publicado em ${formatDateTime(result.publishedAt)}`
+            : ""}
         </div>
       </CardContent>
     </Card>
@@ -195,14 +199,16 @@ function PodiumResults({ snapshot }: { snapshot: AppSnapshot }) {
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-3">
         {podium.map((item) => {
-          const team = snapshot.teams.find((candidate) => candidate.id === item.teamId);
+          const team = snapshot.teams.find(
+            (candidate) => candidate.id === item.teamId,
+          );
 
           return (
             <div
               key={item.label}
               className="rounded-lg border border-[color:var(--border-subtle)] p-4"
             >
-              <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+              <div className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
                 {item.label}
               </div>
               <div className="mt-3 flex items-center gap-3 font-semibold text-[color:var(--text-strong)]">
@@ -245,13 +251,15 @@ export function ResultsPageClient({
   return (
     <div className="space-y-4">
       {isSandbox ? (
-        <Badge variant="accent">Sandbox ativo: resultados locais simulados</Badge>
+        <Badge variant="accent">
+          Sandbox ativo: resultados locais simulados
+        </Badge>
       ) : null}
 
-      <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-12">
         <div className="space-y-4 pb-8">
           <Card>
-            <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+            <CardContent className="flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <div className="text-lg font-bold text-[color:var(--text-muted)]">
                   {selectedPhase.name}
@@ -261,7 +269,7 @@ export function ResultsPageClient({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {previousPhase ? (
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/app/resultados?phase=${previousPhase.slug}`}>
@@ -298,7 +306,7 @@ export function ResultsPageClient({
             <div className="space-y-6">
               {sections.map((section) => (
                 <div key={section.id} className="space-y-3">
-                  <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  <div className="text-sm font-semibold tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
                     {section.label}
                   </div>
                   <div className="grid gap-4 lg:grid-cols-2">
@@ -315,7 +323,7 @@ export function ResultsPageClient({
             </div>
           ) : (
             <Card>
-              <CardContent className="p-6 text-sm text-[color:var(--text-muted)]">
+              <CardContent className="p-4 text-sm text-[color:var(--text-muted)] sm:p-6">
                 Partidas a serem definidas.
               </CardContent>
             </Card>
@@ -323,7 +331,10 @@ export function ResultsPageClient({
         </div>
 
         <div className="xl:sticky xl:top-4 xl:self-start">
-          <PhaseProgressSidebar items={phaseProgressItems} countLabel="publicados" />
+          <PhaseProgressSidebar
+            items={phaseProgressItems}
+            countLabel="publicados"
+          />
         </div>
       </div>
     </div>

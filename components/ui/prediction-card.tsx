@@ -34,10 +34,10 @@ export function PredictionCard({
 
   return (
     <Card className={cn(className)}>
-      <CardContent className="space-y-5 p-6">
+      <CardContent className="space-y-5 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <p className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
               Partida
             </p>
             <h3 className="mt-2 text-lg font-semibold text-[color:var(--text-strong)]">
@@ -58,9 +58,9 @@ export function PredictionCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 rounded-lg bg-[color:var(--surface-muted)] p-4">
+        <div className="flex flex-col items-start justify-between gap-4 rounded-lg bg-[color:var(--surface-muted)] p-4 sm:flex-row sm:items-center">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <p className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
               Seu palpite
             </p>
             <p className="mt-2 text-base font-semibold text-[color:var(--text-strong)]">

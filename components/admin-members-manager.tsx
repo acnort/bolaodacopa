@@ -54,7 +54,7 @@ export function AdminMembersManager({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-12 xl:grid-cols-[0.78fr_1.22fr]">
+      <div className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr] xl:gap-12">
         <Card>
           <CardHeader>
             <CardTitle>Link de acesso</CardTitle>

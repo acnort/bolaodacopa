@@ -10,7 +10,15 @@ export function TableHeader({
   className,
   ...props
 }: React.ComponentProps<"thead">) {
-  return <thead className={cn("text-xs uppercase tracking-[0.18em]", className)} {...props} />;
+  return (
+    <thead
+      className={cn(
+        "text-[11px] tracking-[0.14em] uppercase sm:text-xs sm:tracking-[0.18em]",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function TableBody({
@@ -32,25 +40,25 @@ export function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   );
 }
 
-export function TableHead({
-  className,
-  ...props
-}: React.ComponentProps<"th">) {
+export function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
-      className={cn("px-4 py-3 font-semibold text-[color:var(--text-muted)]", className)}
+      className={cn(
+        "px-3 py-2.5 font-semibold text-[color:var(--text-muted)] sm:px-4 sm:py-3",
+        className,
+      )}
       {...props}
     />
   );
 }
 
-export function TableCell({
-  className,
-  ...props
-}: React.ComponentProps<"td">) {
+export function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
-      className={cn("px-4 py-4 align-middle text-sm text-[color:var(--text-strong)]", className)}
+      className={cn(
+        "px-3 py-3 align-middle text-sm text-[color:var(--text-strong)] sm:px-4 sm:py-4",
+        className,
+      )}
       {...props}
     />
   );

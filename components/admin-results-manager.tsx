@@ -56,7 +56,7 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-12 xl:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-2 xl:gap-12">
         <Card>
           <CardHeader>
             <CardTitle>Pódio</CardTitle>

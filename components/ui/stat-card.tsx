@@ -25,13 +25,15 @@ export function StatCard({
 
   return (
     <Card>
-      <CardContent className="space-y-4 p-6">
+      <CardContent className="space-y-4 p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <p className="text-sm text-[color:var(--text-muted)]">{label}</p>
           <Badge variant={variant}>{tone}</Badge>
         </div>
         <div>
-          <p className="text-3xl font-semibold text-[color:var(--text-strong)]">{value}</p>
+          <p className="text-3xl font-semibold text-[color:var(--text-strong)]">
+            {value}
+          </p>
           <div className="mt-2 flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
             <ArrowRight className="h-4 w-4" />
             <span>{hint}</span>

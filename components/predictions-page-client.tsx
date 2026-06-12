@@ -148,7 +148,7 @@ export function PredictionsPageClient({
         <Badge variant="accent">Sandbox ativo: dados locais simulados</Badge>
       ) : null}
 
-      <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-12">
         <PhasePredictionsForm
           key={`${isSandbox ? "sandbox" : "real"}-${selectedPhase.id}-${activeSnapshot.matchPredictions.length}`}
           currentUserId={currentUserId}
@@ -160,7 +160,9 @@ export function PredictionsPageClient({
           defaultScores={defaultScores}
           placementPrediction={placementPrediction}
           previousPhaseHref={
-            previousPhase ? `/app/palpites?phase=${previousPhase.slug}` : undefined
+            previousPhase
+              ? `/app/palpites?phase=${previousPhase.slug}`
+              : undefined
           }
           nextPhaseHref={
             nextPhase ? `/app/palpites?phase=${nextPhase.slug}` : undefined

@@ -212,7 +212,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1540px] gap-12 px-4 py-4 md:px-6 xl:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1540px] gap-6 px-3 py-3 sm:px-4 sm:py-4 md:px-6 lg:gap-12 xl:px-8">
         <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-elevated)] p-5 shadow-[var(--shadow-card)] lg:flex lg:flex-col">
           <div className="flex justify-center">
             <div className="relative h-32 w-48 shrink-0">
@@ -257,14 +257,59 @@ export function AppShell({
           </div>
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-12">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col gap-5 sm:gap-6 lg:gap-12">
           <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <DrawerTrigger asChild>
-              <Button variant="secondary" size="icon" className="lg:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Abrir menu</span>
-              </Button>
-            </DrawerTrigger>
+            <div className="sticky top-0 z-30 -mx-3 border-b border-[color:var(--border-subtle)] bg-[color:var(--background)]/92 px-3 py-2 backdrop-blur lg:hidden">
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  href="/app"
+                  onClick={() =>
+                    startTransition(() => setOptimisticPath("/app"))
+                  }
+                  className="relative h-11 w-32 shrink-0"
+                >
+                  <Image
+                    src="/logo_h.png"
+                    alt="Bolão da Copa"
+                    fill
+                    sizes="128px"
+                    className="object-contain"
+                    priority
+                  />
+                </Link>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Link
+                    href="/app/perfil"
+                    onClick={() =>
+                      startTransition(() => setOptimisticPath("/app/perfil"))
+                    }
+                    className={cn(
+                      "flex min-w-0 items-center gap-2 rounded-xl px-2 py-1 transition",
+                      profileActive
+                        ? "bg-[color:var(--accent-muted)]"
+                        : "hover:bg-[color:var(--surface-muted)]",
+                    )}
+                    aria-label="Abrir perfil"
+                  >
+                    <UserAvatar
+                      name={userName}
+                      avatarUrl={userAvatarUrl}
+                      className="h-8 w-8 text-[10px]"
+                    />
+                  </Link>
+                  <DrawerTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-10 w-10"
+                    >
+                      <Menu className="h-5 w-5" />
+                      <span className="sr-only">Abrir menu</span>
+                    </Button>
+                  </DrawerTrigger>
+                </div>
+              </div>
+            </div>
             <DrawerContent className="lg:hidden">
               <Link
                 href="/app/perfil"
@@ -301,7 +346,7 @@ export function AppShell({
             </DrawerContent>
           </Drawer>
 
-          <main className="pb-8">{children}</main>
+          <main className="pb-6 sm:pb-8">{children}</main>
         </div>
       </div>
     </div>
