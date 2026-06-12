@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { RankingRowPredictionsDialog } from "@/components/ranking-row-predictions-dialog";
 import { TeamFlag } from "@/components/team-flag";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -28,9 +35,9 @@ import {
   isPhasePredictionVisible,
 } from "@/lib/domain/scoring";
 import type { AppSnapshot, Match, MatchPrediction } from "@/lib/domain/types";
+import { APP_TIME_ZONE, getDateKeyInAppTimeZone } from "@/lib/formatters";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
-const UPCOMING_MATCH_WINDOW_MS = 30 * 60 * 1000;
 const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
 const RANKING_REFRESH_INTERVAL_MS = 60 * 1000;
 
@@ -79,6 +86,15 @@ function getMatchStatusLabel(kickoffAt: string, now: Date) {
     return "Começa agora";
   }
 
+  if (minutesToKickoff > 60) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: APP_TIME_ZONE,
+    }).format(new Date(kickoffAt));
+  }
+
   return `Começa em ${minutesToKickoff} min`;
 }
 
@@ -98,6 +114,43 @@ function isRecentlyStartedMatch(
     startsInMs <= 0 &&
     startsInMs >= -LIVE_MATCH_STALE_WINDOW_MS
   );
+}
+
+function getDateFromDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(year, (month ?? 1) - 1, day ?? 1, 12));
+}
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const date = getDateFromDateKey(dateKey);
+  date.setUTCDate(date.getUTCDate() + days);
+  return getDateKeyInAppTimeZone(date.toISOString());
+}
+
+function getDaySelectorLabel(dateKey: string, todayKey: string) {
+  const date = getDateFromDateKey(dateKey);
+  const formatted = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
+
+  return dateKey === todayKey ? `Hoje, ${formatted}` : formatted;
+}
+
+function getFeaturedMatchStatusLabel({
+  isLive,
+  match,
+  now,
+}: {
+  isLive: boolean;
+  match: Pick<Match, "kickoffAt" | "status">;
+  now: Date;
+}) {
+  if (match.status === "completed") return "Encerrado";
+  if (isLive) return "Ao vivo";
+
+  return getMatchStatusLabel(match.kickoffAt, now);
 }
 
 function getUpdatedAgoLabel(updatedAt: string | undefined, now: Date) {
@@ -191,7 +244,12 @@ export function RankingView({
   const activeSnapshot = sandboxSnapshot ?? snapshot;
   const isSandbox = Boolean(sandboxSnapshot);
   const visibleAtDate = new Date(visibleAt);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [currentTime, setCurrentTime] = useState(visibleAtDate);
+  const todayDateKey = getDateKeyInAppTimeZone(currentTime.toISOString());
+  const [selectedDateKey, setSelectedDateKey] = useState(() =>
+    getDateKeyInAppTimeZone(visibleAtDate.toISOString()),
+  );
   const leaderboard = buildLeaderboard(activeSnapshot, visibleAtDate);
   const liveMovements = buildLiveLeaderboardMovements(
     activeSnapshot,
@@ -216,23 +274,22 @@ export function RankingView({
   };
   const featuredMatches = activeSnapshot.matches
     .filter((match) => {
-      const startsInMs = getMatchStartsInMs(match, currentTime);
+      return getDateKeyInAppTimeZone(match.kickoffAt) === selectedDateKey;
+    })
+    .sort((left, right) => {
+      const leftIsLive =
+        left.status === "in_progress" ||
+        isRecentlyStartedMatch(left, currentTime);
+      const rightIsLive =
+        right.status === "in_progress" ||
+        isRecentlyStartedMatch(right, currentTime);
 
-      if (match.status === "in_progress") return true;
-      if (isRecentlyStartedMatch(match, currentTime)) return true;
-      if (match.status !== "scheduled") return false;
+      if (leftIsLive !== rightIsLive) return leftIsLive ? -1 : 1;
 
       return (
-        Number.isFinite(startsInMs) &&
-        startsInMs >= 0 &&
-        startsInMs <= UPCOMING_MATCH_WINDOW_MS
+        new Date(left.kickoffAt).getTime() - new Date(right.kickoffAt).getTime()
       );
-    })
-    .sort(
-      (left, right) =>
-        new Date(left.kickoffAt).getTime() -
-        new Date(right.kickoffAt).getTime(),
-    );
+    });
   const phases = getSortedPhases(activeSnapshot.phases);
   const phaseRules = phases
     .map((phase) => ({
@@ -249,6 +306,18 @@ export function RankingView({
 
     return () => window.clearInterval(interval);
   }, [router]);
+
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.click();
+  };
 
   return (
     <div className="space-y-6">
@@ -508,13 +577,78 @@ export function RankingView({
 
         <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <div className="text-lg font-bold">Partidas em andamento</div>
+            <CardHeader className="space-y-3">
+              <div className="text-lg font-bold">Partidas</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex items-center rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] p-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    aria-label="Dia anterior"
+                    onClick={() =>
+                      setSelectedDateKey((current) =>
+                        addDaysToDateKey(current, -1),
+                      )
+                    }
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 min-w-[116px] rounded-lg px-2 text-xs"
+                    onClick={openDatePicker}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    {getDaySelectorLabel(selectedDateKey, todayDateKey)}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    aria-label="Próximo dia"
+                    onClick={() =>
+                      setSelectedDateKey((current) =>
+                        addDaysToDateKey(current, 1),
+                      )
+                    }
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={selectedDateKey}
+                    onChange={(event) => {
+                      if (event.target.value) {
+                        setSelectedDateKey(event.target.value);
+                      }
+                    }}
+                    className="pointer-events-none absolute inset-x-10 bottom-0 h-0 w-0 opacity-0"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10"
+                  disabled={selectedDateKey === todayDateKey}
+                  onClick={() => setSelectedDateKey(todayDateKey)}
+                >
+                  Hoje
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {featuredMatches.length === 0 ? (
                 <p className="text-sm text-[color:var(--text-muted)]">
-                  Nenhuma partida em andamento ou começando agora.
+                  Nenhuma partida marcada para esta data.
                 </p>
               ) : (
                 featuredMatches.map((match) => {
@@ -554,7 +688,7 @@ export function RankingView({
                         </div>
                         <div className="flex flex-col items-center gap-1">
                           <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
-                            {isLive && result
+                            {result
                               ? `${result.homeScore} x ${result.awayScore}`
                               : "x"}
                           </div>
@@ -565,12 +699,11 @@ export function RankingView({
                                 : "text-[color:var(--accent-strong)]"
                             }`}
                           >
-                            {isLive
-                              ? "Ao vivo"
-                              : getMatchStatusLabel(
-                                  match.kickoffAt,
-                                  currentTime,
-                                )}
+                            {getFeaturedMatchStatusLabel({
+                              isLive,
+                              match,
+                              now: currentTime,
+                            })}
                           </span>
                         </div>
                         <div className="min-w-0">
