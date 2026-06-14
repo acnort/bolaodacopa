@@ -7,6 +7,10 @@ import { cookies } from "next/headers";
 import path from "path";
 
 import {
+  parseFakePredictionsInput,
+  resolveFakePredictionsForPhase,
+} from "@/lib/domain/fake-predictions";
+import {
   buildLeaderboard,
   buildScoreEntries,
   isPhasePredictionVisible,
@@ -61,6 +65,7 @@ import {
   reviewSignupRequestPostgres,
   updateMemberRolePostgres,
   saveMatchPredictionPostgres,
+  saveFakeMemberPredictionsPostgres,
   saveOfficialResultPostgres,
   savePhasePredictionsPostgres,
   savePhaseRulePostgres,
@@ -1203,6 +1208,165 @@ export async function savePhaseRulesBatchAction(
     message: "Regras salvas.",
     data: { updatedCount },
   };
+}
+
+export async function saveFakeMemberPredictionsAction(
+  formData: FormData,
+): Promise<
+  ActionResult<{
+    userId: string;
+    updatedCount: number;
+    placementSaved: boolean;
+    reversedCount: number;
+    ignoredClassifications: number;
+  }>
+> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
+  if (!isDatabaseConfigured()) {
+    return {
+      ok: false,
+      message: "Usuários fake só podem ser gravados com banco configurado.",
+    };
+  }
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const phaseId = String(formData.get("phaseId") ?? "").trim();
+  const rawPredictions = String(formData.get("predictions") ?? "").trim();
+  const championTeamId = String(formData.get("championTeamId") ?? "").trim();
+  const runnerUpTeamId = String(formData.get("runnerUpTeamId") ?? "").trim();
+  const thirdPlaceTeamId = String(
+    formData.get("thirdPlaceTeamId") ?? "",
+  ).trim();
+  const placementTeamIds = [
+    championTeamId,
+    runnerUpTeamId,
+    thirdPlaceTeamId,
+  ].filter(Boolean);
+
+  if (fullName.length < 2) {
+    return { ok: false, message: "Informe o nome do usuário fake." };
+  }
+  if (!email.endsWith("@fake.bolao.local")) {
+    return {
+      ok: false,
+      message: "Use um email terminado em @fake.bolao.local.",
+    };
+  }
+  if (!phaseId) {
+    return { ok: false, message: "Selecione uma fase válida." };
+  }
+  if (!rawPredictions && placementTeamIds.length === 0) {
+    return {
+      ok: false,
+      message: "Cole os palpites ou preencha o pódio final.",
+    };
+  }
+  if (placementTeamIds.length > 0 && placementTeamIds.length < 3) {
+    return {
+      ok: false,
+      message: "Preencha campeão, vice e terceiro para salvar o pódio.",
+    };
+  }
+  if (
+    placementTeamIds.length === 3 &&
+    new Set(placementTeamIds).size !== placementTeamIds.length
+  ) {
+    return {
+      ok: false,
+      message: "Campeão, vice e terceiro precisam ser diferentes.",
+    };
+  }
+
+  const snapshot = await getAppSnapshot();
+  const phase = snapshot.phases.find((item) => item.id === phaseId);
+  if (!phase) {
+    return { ok: false, message: "Fase não encontrada." };
+  }
+
+  try {
+    const parsed = rawPredictions
+      ? parseFakePredictionsInput(rawPredictions)
+      : { predictions: [], ignoredClassifications: [] };
+    const resolvedPredictions = resolveFakePredictionsForPhase({
+      snapshot,
+      phaseId,
+      predictions: parsed.predictions,
+    });
+    const expectedCount = snapshot.matches.filter(
+      (match) =>
+        match.phaseId === phaseId && match.homeTeamId && match.awayTeamId,
+    ).length;
+
+    if (rawPredictions && resolvedPredictions.length !== expectedCount) {
+      return {
+        ok: false,
+        message: `Esperados ${expectedCount} palpites para ${phase.name}, encontrados ${resolvedPredictions.length}.`,
+      };
+    }
+    const validTeamIds = new Set(snapshot.teams.map((team) => team.id));
+    if (
+      placementTeamIds.length === 3 &&
+      placementTeamIds.some((teamId) => !validTeamIds.has(teamId))
+    ) {
+      return { ok: false, message: "Existe um time inválido no pódio." };
+    }
+
+    const result = await saveFakeMemberPredictionsPostgres({
+      competitionId: snapshot.competition.id,
+      fullName,
+      email,
+      predictions: resolvedPredictions.map((prediction) => ({
+        matchId: prediction.matchId,
+        homeScore: prediction.homeScore,
+        awayScore: prediction.awayScore,
+      })),
+      placementPrediction:
+        placementTeamIds.length === 3
+          ? {
+              championTeamId,
+              runnerUpTeamId,
+              thirdPlaceTeamId,
+            }
+          : undefined,
+    });
+
+    if (!result.ok || !result.data) {
+      return {
+        ok: false,
+        message: result.message,
+        fieldErrors: result.fieldErrors,
+      };
+    }
+
+    return {
+      ok: true,
+      message: `${fullName} salvo com ${resolvedPredictions.length} palpites${
+        result.data.placementSaved ? " e pódio final" : ""
+      }.`,
+      data: {
+        userId: result.data.userId,
+        updatedCount: result.data.updatedCount,
+        placementSaved: result.data.placementSaved,
+        reversedCount: resolvedPredictions.filter(
+          (prediction) => prediction.reversed,
+        ).length,
+        ignoredClassifications: parsed.ignoredClassifications.length,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível importar os palpites.",
+    };
+  }
 }
 
 export async function removeSignupRequestAction(

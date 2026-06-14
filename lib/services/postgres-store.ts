@@ -38,6 +38,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function isFakeMemberEmail(email: string) {
+  return email.trim().toLowerCase().endsWith("@fake.bolao.local");
+}
+
 function requiredPool() {
   const pool = getDatabasePool();
 
@@ -898,6 +902,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       email: row.email,
       role: row.role,
       avatarUrl: row.avatar_url ?? undefined,
+      isFake: isFakeMemberEmail(row.email),
       createdAt: new Date(row.created_at).toISOString(),
     })),
     accessInvites: accessInvitesResult.rows.map((row) => ({
@@ -1120,6 +1125,169 @@ export async function savePhasePredictionsPostgres(
           ? "Palpites da fase salvos."
           : "Nenhuma alteração enviada.",
       data: { updatedCount },
+    };
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function saveFakeMemberPredictionsPostgres(input: {
+  competitionId: string;
+  fullName: string;
+  email: string;
+  predictions: Array<{
+    matchId: string;
+    homeScore: number;
+    awayScore: number;
+  }>;
+  placementPrediction?: {
+    championTeamId: string;
+    runnerUpTeamId: string;
+    thirdPlaceTeamId: string;
+  };
+}): Promise<
+  ActionResult<{
+    userId: string;
+    updatedCount: number;
+    placementSaved: boolean;
+  }>
+> {
+  await ensureDatabaseSeeded();
+
+  const email = input.email.trim().toLowerCase();
+  if (!isFakeMemberEmail(email)) {
+    return {
+      ok: false,
+      message: "O email fake precisa terminar com @fake.bolao.local.",
+    };
+  }
+
+  const client = await requiredPool().connect();
+
+  try {
+    await client.query("begin");
+
+    const timestamp = nowIso();
+    const existingUser = await client.query<{
+      user_id: string;
+      profile_id: string | null;
+    }>(
+      `
+        select u.id as user_id, p.id as profile_id
+        from users u
+        left join profiles p on p.user_id = u.id
+        where u.email = $1
+        limit 1
+      `,
+      [email],
+    );
+    const userId =
+      existingUser.rows[0]?.profile_id ??
+      existingUser.rows[0]?.user_id ??
+      nextId("fake-user");
+
+    await client.query(
+      `
+        insert into users (id, email, password_hash, created_at)
+        values ($1, $2, null, $3)
+        on conflict (email) do nothing
+      `,
+      [userId, email, timestamp],
+    );
+
+    await client.query(
+      `
+        insert into profiles (id, user_id, full_name, role, created_at)
+        values ($1, $1, $2, 'member', $3)
+        on conflict (id) do update set full_name = excluded.full_name
+      `,
+      [userId, input.fullName, timestamp],
+    );
+
+    await client.query(
+      `
+        insert into memberships (id, user_id, competition_id, role, joined_at)
+        values ($1, $2, $3, 'member', $4)
+        on conflict (user_id, competition_id) do nothing
+      `,
+      [nextId("membership"), userId, input.competitionId, timestamp],
+    );
+
+    for (const prediction of input.predictions) {
+      await client.query(
+        `
+          insert into match_predictions (
+            id,
+            user_id,
+            match_id,
+            home_score,
+            away_score,
+            created_at,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $6)
+          on conflict (user_id, match_id)
+          do update set
+            home_score = excluded.home_score,
+            away_score = excluded.away_score,
+            updated_at = excluded.updated_at
+        `,
+        [
+          nextId("pred"),
+          userId,
+          prediction.matchId,
+          prediction.homeScore,
+          prediction.awayScore,
+          timestamp,
+        ],
+      );
+    }
+
+    if (input.placementPrediction) {
+      await client.query(
+        `
+          insert into placement_predictions (
+            id,
+            user_id,
+            competition_id,
+            champion_team_id,
+            runner_up_team_id,
+            third_place_team_id,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7)
+          on conflict (user_id, competition_id)
+          do update set
+            champion_team_id = excluded.champion_team_id,
+            runner_up_team_id = excluded.runner_up_team_id,
+            third_place_team_id = excluded.third_place_team_id,
+            updated_at = excluded.updated_at
+        `,
+        [
+          nextId("placement"),
+          userId,
+          input.competitionId,
+          input.placementPrediction.championTeamId,
+          input.placementPrediction.runnerUpTeamId,
+          input.placementPrediction.thirdPlaceTeamId,
+          timestamp,
+        ],
+      );
+    }
+
+    await client.query("commit");
+
+    return {
+      ok: true,
+      message: "Usuário fake e palpites salvos.",
+      data: {
+        userId,
+        updatedCount: input.predictions.length,
+        placementSaved: Boolean(input.placementPrediction),
+      },
     };
   } catch (error) {
     await client.query("rollback");

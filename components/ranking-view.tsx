@@ -40,6 +40,7 @@ import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
 const RANKING_REFRESH_INTERVAL_MS = 60 * 1000;
+const SHOW_AI_STORAGE_KEY = "bolao-ranking-show-ai";
 
 function getPositionClasses(position: number) {
   if (position === 1) {
@@ -244,13 +245,39 @@ export function RankingView({
   const visibleAtDate = new Date(visibleAt);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [currentTime, setCurrentTime] = useState(visibleAtDate);
+  const [showAi, setShowAi] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SHOW_AI_STORAGE_KEY) === "true";
+  });
   const todayDateKey = getDateKeyInAppTimeZone(currentTime.toISOString());
   const [selectedDateKey, setSelectedDateKey] = useState(() =>
     getDateKeyInAppTimeZone(visibleAtDate.toISOString()),
   );
-  const leaderboard = buildLeaderboard(activeSnapshot, visibleAtDate);
+  const fakeUserIds = new Set(
+    activeSnapshot.profiles
+      .filter((profile) => profile.isFake)
+      .map((profile) => profile.id),
+  );
+  const rankingSnapshot = showAi
+    ? activeSnapshot
+    : {
+        ...activeSnapshot,
+        profiles: activeSnapshot.profiles.filter(
+          (profile) => !fakeUserIds.has(profile.id),
+        ),
+        memberships: activeSnapshot.memberships.filter(
+          (membership) => !fakeUserIds.has(membership.userId),
+        ),
+        matchPredictions: activeSnapshot.matchPredictions.filter(
+          (prediction) => !fakeUserIds.has(prediction.userId),
+        ),
+        placementPredictions: activeSnapshot.placementPredictions.filter(
+          (prediction) => !fakeUserIds.has(prediction.userId),
+        ),
+      };
+  const leaderboard = buildLeaderboard(rankingSnapshot, visibleAtDate);
   const liveMovements = buildLiveLeaderboardMovements(
-    activeSnapshot,
+    rankingSnapshot,
     visibleAtDate,
   );
   const resultsByMatchId = new Map(
@@ -379,6 +406,14 @@ export function RankingView({
     return () => window.clearInterval(interval);
   }, [router]);
 
+  const toggleShowAi = () => {
+    setShowAi((current) => {
+      const next = !current;
+      window.localStorage.setItem(SHOW_AI_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+
   const openDatePicker = () => {
     const input = dateInputRef.current;
     if (!input) return;
@@ -400,11 +435,34 @@ export function RankingView({
       <div className="grid gap-6 xl:grid-cols-[1fr_320px] xl:gap-12">
         <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <div className="text-lg font-bold">Ranking</div>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                {getUpdatedAgoLabel(resultsLastUpdatedAt, currentTime)}
-              </p>
+            <CardHeader className="gap-4 space-y-0 sm:flex sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <div className="text-lg font-bold">Ranking</div>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  {getUpdatedAgoLabel(resultsLastUpdatedAt, currentTime)}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-pressed={showAi}
+                onClick={toggleShowAi}
+                className="inline-flex h-9 shrink-0 items-center gap-2 self-start rounded-full border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-muted)] aria-pressed:border-[color:var(--accent-soft)] aria-pressed:bg-[color:var(--accent-muted)] aria-pressed:text-[color:var(--accent-strong)]"
+              >
+                <span
+                  className={`relative h-4 w-7 rounded-full transition ${
+                    showAi
+                      ? "bg-[color:var(--accent-strong)]"
+                      : "bg-[color:var(--border-subtle)]"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                      showAi ? "left-3.5" : "left-0.5"
+                    }`}
+                  />
+                </span>
+                Mostrar IA
+              </button>
             </CardHeader>
             <CardContent className="overflow-hidden rounded-lg border border-[color:var(--border-subtle)] p-0">
               <div className="divide-y divide-[color:var(--border-subtle)] md:hidden">
@@ -417,7 +475,14 @@ export function RankingView({
                     getPredictionDialogData(entry.userId);
 
                   return (
-                    <div key={entry.userId} className="p-4">
+                    <div
+                      key={entry.userId}
+                      className={`p-4 ${
+                        entry.isFake
+                          ? "bg-[color:var(--surface-muted)]/40 opacity-75"
+                          : ""
+                      }`}
+                    >
                       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                         <div className="min-w-0 overflow-hidden">
                           <div className="flex min-w-0 items-center gap-3">
@@ -427,8 +492,19 @@ export function RankingView({
                               className="h-10 w-10 shrink-0 text-xs"
                             />
                             <div className="w-0 min-w-0 flex-1 overflow-hidden">
-                              <div className="line-clamp-2 max-w-full text-sm leading-snug font-semibold [overflow-wrap:anywhere] break-words text-[color:var(--text-strong)] sm:text-base">
-                                {entry.displayName}
+                              <div className="flex min-w-0 items-start gap-2">
+                                <div className="line-clamp-2 max-w-full min-w-0 flex-1 text-sm leading-snug font-semibold [overflow-wrap:anywhere] break-words text-[color:var(--text-strong)] sm:text-base">
+                                  {entry.displayName}
+                                </div>
+                                {entry.isFake ? (
+                                  <Badge
+                                    variant="accent"
+                                    size="small"
+                                    className="shrink-0 tracking-[0.1em]"
+                                  >
+                                    IA
+                                  </Badge>
+                                ) : null}
                               </div>
                               <div className="mt-1 flex items-center gap-2">
                                 {showPosition ? (
@@ -516,7 +592,14 @@ export function RankingView({
                         getPredictionDialogData(entry.userId);
 
                       return (
-                        <TableRow key={entry.userId}>
+                        <TableRow
+                          key={entry.userId}
+                          className={
+                            entry.isFake
+                              ? "bg-[color:var(--surface-muted)]/40 opacity-75"
+                              : undefined
+                          }
+                        >
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {showPosition ? (
@@ -543,6 +626,15 @@ export function RankingView({
                                 className="h-9 w-9 text-xs"
                               />
                               <span>{entry.displayName}</span>
+                              {entry.isFake ? (
+                                <Badge
+                                  variant="accent"
+                                  size="small"
+                                  className="tracking-[0.1em]"
+                                >
+                                  IA
+                                </Badge>
+                              ) : null}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">

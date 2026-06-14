@@ -9,6 +9,7 @@ export interface Profile {
   email: string;
   role: UserRole;
   avatarUrl?: string;
+  isFake?: boolean;
   createdAt: string;
 }
 
@@ -167,6 +168,7 @@ export interface LeaderboardEntry {
   userId: string;
   displayName: string;
   avatarUrl?: string;
+  isFake?: boolean;
   totalPoints: number;
   exactHits: number;
   outcomeHits: number;

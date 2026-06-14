@@ -27,6 +27,7 @@ import {
   reviewSignupRequestAction as reviewSignupRequestInternal,
   clearOfficialResultsAction as clearOfficialResultsInternal,
   savePhasePredictionsBatchAction as savePhasePredictionsBatchInternal,
+  saveFakeMemberPredictionsAction as saveFakeMemberPredictionsInternal,
   saveMatchPredictionAction as saveMatchPredictionInternal,
   saveOfficialResultAction as saveOfficialResultInternal,
   savePhaseRuleAction as savePhaseRuleInternal,
@@ -144,7 +145,33 @@ export async function savePhasePredictionsBatch(
     if (error instanceof Error) {
       return { ok: false, message: error.message };
     }
-    return toErrorResult(error);
+    return { ok: false, message: "Nao foi possivel concluir a operacao." };
+  }
+}
+
+export async function saveFakeMemberPredictions(
+  _prevState: ActionResult | undefined,
+  formData: FormData,
+): Promise<
+  ActionResult<{
+    userId: string;
+    updatedCount: number;
+    placementSaved: boolean;
+    reversedCount: number;
+    ignoredClassifications: number;
+  }>
+> {
+  try {
+    const result = await saveFakeMemberPredictionsInternal(formData);
+    revalidatePath("/app");
+    revalidatePath("/app/admin/fakes");
+    revalidatePath("/app/admin/palpites");
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      return { ok: false, message: error.message };
+    }
+    return { ok: false, message: "Nao foi possivel concluir a operacao." };
   }
 }
 

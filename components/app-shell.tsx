@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   ClipboardList,
   ClipboardCheck,
+  Bot,
   FlaskConical,
   ListChecks,
   LogOut,
@@ -74,6 +75,11 @@ function getLinks(isAdmin: boolean): NavigationItem[] {
                 href: "/app/admin/palpites",
                 label: "Palpites",
                 icon: ClipboardCheck,
+              },
+              {
+                href: "/app/admin/fakes",
+                label: "Fakes",
+                icon: Bot,
               },
               { href: "/app/admin/membros", label: "Membros", icon: Users },
               {
