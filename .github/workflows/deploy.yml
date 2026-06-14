@@ -59,7 +59,34 @@ jobs:
             --exclude='./.next' \
             -cf - . | tar -xf - -C .deploy
 
-      - name: Sync project to VPS
+      - name: Check SSH connectivity
+        env:
+          DEPLOY_HOST: ${{ secrets.HOST }}
+          DEPLOY_PORT: ${{ secrets.PORT }}
+        run: |
+          set -euo pipefail
+
+          echo "Resolving deploy host..."
+          getent ahosts "$DEPLOY_HOST" || true
+
+          for attempt in 1 2 3 4 5; do
+            echo "Testing SSH connectivity, attempt $attempt/5..."
+
+            if timeout 30 bash -c "cat < /dev/null > /dev/tcp/$DEPLOY_HOST/$DEPLOY_PORT" \
+              && ssh-keyscan -T 30 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >/dev/null; then
+              echo "SSH connectivity check passed."
+              exit 0
+            fi
+
+            sleep $((attempt * 15))
+          done
+
+          echo "SSH connectivity check failed after 5 attempts."
+          exit 1
+
+      - name: Sync project to VPS (attempt 1)
+        id: sync-attempt-1
+        continue-on-error: true
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -69,7 +96,50 @@ jobs:
           source: ".deploy"
           target: "${{ env.PROJECT_DIR }}"
           strip_components: 1
-          timeout: 180s
+          timeout: 300s
+          command_timeout: 20m
+          overwrite: true
+          rm: false
+
+      - name: Wait before sync retry 2
+        if: steps.sync-attempt-1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Sync project to VPS (attempt 2)
+        id: sync-attempt-2
+        if: steps.sync-attempt-1.outcome == 'failure'
+        continue-on-error: true
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          key: ${{ secrets.SSHKEY }}
+          source: ".deploy"
+          target: "${{ env.PROJECT_DIR }}"
+          strip_components: 1
+          timeout: 300s
+          command_timeout: 20m
+          overwrite: true
+          rm: false
+
+      - name: Wait before sync retry 3
+        if: steps.sync-attempt-1.outcome == 'failure' && steps.sync-attempt-2.outcome == 'failure'
+        run: sleep 60
+
+      - name: Sync project to VPS (attempt 3)
+        if: steps.sync-attempt-1.outcome == 'failure' && steps.sync-attempt-2.outcome == 'failure'
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          key: ${{ secrets.SSHKEY }}
+          source: ".deploy"
+          target: "${{ env.PROJECT_DIR }}"
+          strip_components: 1
+          timeout: 300s
+          command_timeout: 20m
           overwrite: true
           rm: false
 
@@ -80,6 +150,8 @@ jobs:
           username: ${{ secrets.USERNAME }}
           port: ${{ secrets.PORT }}
           key: ${{ secrets.SSHKEY }}
+          timeout: 300s
+          command_timeout: 30m
           script: |
             set -euo pipefail
 
