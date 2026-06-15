@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +16,14 @@ import { TeamFlag } from "@/components/team-flag";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/user-avatar";
 import {
   Table,
@@ -33,8 +42,16 @@ import {
   buildLeaderboard,
   buildLiveLeaderboardMovements,
   isPhasePredictionVisible,
+  scoreMatchPrediction,
 } from "@/lib/domain/scoring";
-import type { AppSnapshot, Match, MatchPrediction } from "@/lib/domain/types";
+import type {
+  AppSnapshot,
+  Match,
+  MatchPrediction,
+  OfficialResult,
+  PredictionRule,
+  Profile,
+} from "@/lib/domain/types";
 import { APP_TIME_ZONE, getDateKeyInAppTimeZone } from "@/lib/formatters";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
@@ -197,6 +214,182 @@ function UserMatchPredictionBadge({
   );
 }
 
+interface MatchPredictionScoreRow {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  isFake?: boolean;
+  predictedScore: string;
+  points: number;
+  description: string;
+}
+
+function getMatchPredictionRows({
+  match,
+  profilesById,
+  predictions,
+  result,
+  rule,
+}: {
+  match: Match;
+  profilesById: Map<string, Profile>;
+  predictions: MatchPrediction[];
+  result?: OfficialResult;
+  rule?: PredictionRule;
+}) {
+  return predictions
+    .filter((prediction) => prediction.matchId === match.id)
+    .flatMap((prediction) => {
+      const profile = profilesById.get(prediction.userId);
+      if (!profile) return [];
+
+      const score =
+        result && rule ? scoreMatchPrediction(prediction, result, rule) : null;
+      const row: MatchPredictionScoreRow = {
+        userId: prediction.userId,
+        displayName: profile.fullName,
+        predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
+        points: score?.points ?? 0,
+        description: score?.description ?? "Aguardando placar",
+      };
+
+      if (profile.avatarUrl) {
+        row.avatarUrl = profile.avatarUrl;
+      }
+
+      if (profile.isFake !== undefined) {
+        row.isFake = profile.isFake;
+      }
+
+      return [row];
+    })
+    .sort((left, right) => {
+      if (right.points !== left.points) return right.points - left.points;
+
+      return left.displayName.localeCompare(right.displayName, "pt-BR");
+    });
+}
+
+function MatchPredictionsDialog({
+  homeTeamName,
+  awayTeamName,
+  resultScore,
+  canViewPredictions,
+  rows,
+}: {
+  homeTeamName: string;
+  awayTeamName: string;
+  resultScore: string;
+  canViewPredictions: boolean;
+  rows: MatchPredictionScoreRow[];
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3 h-9 w-full rounded-lg bg-[color:var(--surface-base)] text-xs"
+        >
+          <Eye className="h-4 w-4" />
+          Ver palpites
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[82vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-lg">
+            {homeTeamName} x {awayTeamName}
+          </DialogTitle>
+          <DialogDescription>
+            Placar atual:{" "}
+            <span className="font-semibold text-[color:var(--text-strong)]">
+              {resultScore}
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+
+        {!canViewPredictions ? (
+          <p className="mt-4 rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
+            Palpites liberados após fechamento da janela da fase.
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="mt-4 rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
+            Nenhum palpite encontrado para esta partida.
+          </p>
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-lg border border-[color:var(--border-subtle)]">
+            <Table>
+              <TableHeader className="bg-[color:var(--surface-muted)]">
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="w-[92px] text-center">
+                    Palpite
+                  </TableHead>
+                  <TableHead className="w-[78px] text-center">Pontos</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.userId}
+                    className={
+                      row.isFake
+                        ? "bg-[color:var(--surface-muted)]/40 opacity-75"
+                        : undefined
+                    }
+                  >
+                    <TableCell className="py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <UserAvatar
+                          name={row.displayName}
+                          avatarUrl={row.avatarUrl}
+                          className="h-8 w-8 shrink-0 text-[10px]"
+                        />
+                        <div className="min-w-0">
+                          <div className="line-clamp-2 text-sm leading-snug font-semibold [overflow-wrap:anywhere] break-words">
+                            {row.displayName}
+                          </div>
+                          <div className="text-xs text-[color:var(--text-muted)]">
+                            {row.description}
+                          </div>
+                        </div>
+                        {row.isFake ? (
+                          <Badge
+                            variant="accent"
+                            size="small"
+                            className="ml-auto shrink-0 tracking-[0.1em]"
+                          >
+                            IA
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 text-center font-semibold">
+                      {row.predictedScore}
+                    </TableCell>
+                    <TableCell className="py-3 text-center">
+                      <span
+                        className={`inline-flex min-w-10 justify-center rounded-md px-2 py-1 text-sm font-black ${
+                          row.points > 0
+                            ? "bg-[color:var(--success-soft)] text-[color:var(--success-strong)]"
+                            : "bg-[color:var(--surface-muted)] text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {row.points > 0 ? `+${row.points}` : "0"}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RulePill({
   label,
   points,
@@ -291,6 +484,14 @@ export function RankingView({
   );
   const teamsById = new Map(
     activeSnapshot.teams.map((team) => [team.id, team]),
+  );
+  const approvedUserIds = new Set(
+    rankingSnapshot.memberships.map((membership) => membership.userId),
+  );
+  const profilesById = new Map(
+    rankingSnapshot.profiles
+      .filter((profile) => approvedUserIds.has(profile.id))
+      .map((profile) => [profile.id, profile]),
   );
   const getTeamPredictionView = (teamId?: string) => {
     const team = teamId ? teamsById.get(teamId) : undefined;
@@ -832,6 +1033,25 @@ export function RankingView({
                   );
                   const currentUserPrediction =
                     currentUserPredictionsByMatchId.get(match.id);
+                  const rule = activeSnapshot.rules.find(
+                    (item) => item.phaseId === match.phaseId,
+                  );
+                  const canViewPredictions = isPhasePredictionVisible(
+                    rule,
+                    visibleAtDate,
+                  );
+                  const matchPredictionRows = canViewPredictions
+                    ? getMatchPredictionRows({
+                        match,
+                        profilesById,
+                        predictions: rankingSnapshot.matchPredictions,
+                        result,
+                        rule,
+                      })
+                    : [];
+                  const resultScore = result
+                    ? `${result.homeScore} x ${result.awayScore}`
+                    : "Sem placar";
 
                   return (
                     <div
@@ -882,6 +1102,13 @@ export function RankingView({
                       </div>
                       <UserMatchPredictionBadge
                         prediction={currentUserPrediction}
+                      />
+                      <MatchPredictionsDialog
+                        homeTeamName={homeTeamName}
+                        awayTeamName={awayTeamName}
+                        resultScore={resultScore}
+                        canViewPredictions={canViewPredictions}
+                        rows={matchPredictionRows}
                       />
                     </div>
                   );
