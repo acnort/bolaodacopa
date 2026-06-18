@@ -63,17 +63,36 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.HOST }}
           DEPLOY_PORT: ${{ secrets.PORT }}
+          DEPLOY_USER: ${{ secrets.USERNAME }}
+          DEPLOY_KEY: ${{ secrets.SSHKEY }}
         run: |
           set -euo pipefail
 
           echo "Resolving deploy host..."
           getent ahosts "$DEPLOY_HOST" || true
 
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
           for attempt in 1 2 3 4 5; do
             echo "Testing SSH connectivity, attempt $attempt/5..."
 
-            if timeout 30 bash -c "cat < /dev/null > /dev/tcp/$DEPLOY_HOST/$DEPLOY_PORT" \
-              && ssh-keyscan -T 30 -p "$DEPLOY_PORT" "$DEPLOY_HOST" >/dev/null; then
+            if ! timeout 30 bash -c "cat < /dev/null > /dev/tcp/$DEPLOY_HOST/$DEPLOY_PORT"; then
+              echo "TCP connection to SSH port failed."
+              sleep $((attempt * 15))
+              continue
+            fi
+
+            echo "TCP connection succeeded; testing SSH authentication..."
+            if ssh \
+                -i ~/.ssh/deploy_key \
+                -p "$DEPLOY_PORT" \
+                -o BatchMode=yes \
+                -o ConnectTimeout=30 \
+                -o StrictHostKeyChecking=accept-new \
+                "$DEPLOY_USER@$DEPLOY_HOST" true; then
               echo "SSH connectivity check passed."
               exit 0
             fi
