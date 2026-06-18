@@ -166,6 +166,28 @@ describe("demo store", () => {
     ).toBe("in_progress");
   });
 
+  it("updates kickoff time during match sync", () => {
+    const matchId = getDemoSnapshot().matches.find(
+      (match) => match.status === "scheduled",
+    )!.id;
+    const updatedKickoffAt = "2026-06-19T22:00:00.000Z";
+
+    const result = syncMatchesDemo([
+      {
+        matchId,
+        externalMatchId: "external-1",
+        kickoffAt: updatedKickoffAt,
+        status: "scheduled",
+      },
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(
+      getDemoSnapshot().matches.find((match) => match.id === matchId)
+        ?.kickoffAt,
+    ).toBe(updatedKickoffAt);
+  });
+
   it("does not regress in-progress matches to scheduled during sync", () => {
     const matchId = getDemoSnapshot().matches.find(
       (match) => match.status === "scheduled",

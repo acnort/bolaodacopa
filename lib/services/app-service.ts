@@ -824,6 +824,15 @@ export async function syncResultsProviderAction(
   };
 }
 
+export async function syncResultsProviderManualAction(): Promise<
+  ActionResult<ResultsSyncSummary>
+> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
+  return syncResultsProviderAction({ mode: "adaptive", force: true });
+}
+
 export async function saveMatchPredictionAction(
   formData: FormData,
 ): Promise<ActionResult<{ updatedId: string }>> {

@@ -1,8 +1,14 @@
 import "server-only";
 
 import type { Match, OfficialResult } from "@/lib/domain/types";
-import { type ResultsProvider, type ResultsSyncOptions } from "@/lib/services/results-provider";
-import { getApiFootballConfig, getTodayInSyncTimezone } from "@/lib/services/api-football-config";
+import {
+  type ResultsProvider,
+  type ResultsSyncOptions,
+} from "@/lib/services/results-provider";
+import {
+  getApiFootballConfig,
+  getTodayInSyncTimezone,
+} from "@/lib/services/api-football-config";
 
 interface ApiFootballFixtureResponse {
   response: Array<{
@@ -69,13 +75,26 @@ async function fetchFixturesByDate(date: string) {
   );
 }
 
+async function fetchSeasonFixtures() {
+  const config = getApiFootballConfig();
+  if (!config) {
+    throw new Error("API-Football não configurada.");
+  }
+
+  return fetchFixtures(
+    `/fixtures?league=${config.leagueId}&season=${config.season}&timezone=${encodeURIComponent(config.timezone)}`,
+  );
+}
+
 async function fetchLiveFixtures() {
   const config = getApiFootballConfig();
   if (!config) {
     throw new Error("API-Football não configurada.");
   }
 
-  return fetchFixtures(`/fixtures?live=${config.leagueId}&timezone=${encodeURIComponent(config.timezone)}`);
+  return fetchFixtures(
+    `/fixtures?live=${config.leagueId}&timezone=${encodeURIComponent(config.timezone)}`,
+  );
 }
 
 function mapFixtureToMatch(
@@ -83,6 +102,7 @@ function mapFixtureToMatch(
 ): Match {
   return {
     id: String(fixture.fixture.id),
+    externalMatchId: String(fixture.fixture.id),
     phaseId: "api-football-sync",
     roundLabel: fixture.league.round ?? "Rodada",
     kickoffAt: fixture.fixture.date,
@@ -110,31 +130,42 @@ function mapFixtureToResult(
 
 export const apiFootballProvider: ResultsProvider = {
   async getMatchData(options?: ResultsSyncOptions) {
-    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
+    const payload = options?.date
+      ? await fetchFixturesByDate(options.date)
+      : await fetchSeasonFixtures();
+
     return {
-      matches: daily.response.map(mapFixtureToMatch),
-      results: daily.response.map(mapFixtureToResult).filter(Boolean) as OfficialResult[],
+      matches: payload.response.map(mapFixtureToMatch),
+      results: payload.response
+        .map(mapFixtureToResult)
+        .filter(Boolean) as OfficialResult[],
       externalCalls: 1,
     };
   },
 
   async listMatches(options?: ResultsSyncOptions) {
-    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
-    return daily.response.map(mapFixtureToMatch);
+    const payload = options?.date
+      ? await fetchFixturesByDate(options.date)
+      : await fetchSeasonFixtures();
+    return payload.response.map(mapFixtureToMatch);
   },
 
   async getResults(options?: ResultsSyncOptions) {
-    const daily = await fetchFixturesByDate(options?.date ?? getTodayInSyncTimezone());
-    return daily.response.map(mapFixtureToResult).filter(Boolean) as OfficialResult[];
+    const payload = options?.date
+      ? await fetchFixturesByDate(options.date)
+      : await fetchSeasonFixtures();
+    return payload.response
+      .map(mapFixtureToResult)
+      .filter(Boolean) as OfficialResult[];
   },
 
   async syncCompetitionData(options?: ResultsSyncOptions) {
     const mode = options?.mode ?? "daily";
-    const date = options?.date ?? getTodayInSyncTimezone();
-    const payload =
-      mode === "live-window"
+    const payload = options?.date
+      ? await fetchFixturesByDate(options.date)
+      : mode === "live-window"
         ? await fetchLiveFixtures()
-        : await fetchFixturesByDate(date);
+        : await fetchSeasonFixtures();
 
     const matches = payload.response.map(mapFixtureToMatch);
     const results = payload.response
@@ -147,7 +178,7 @@ export const apiFootballProvider: ResultsProvider = {
       results: results.length,
       provider: "api-football" as const,
       mode,
-      date,
+      date: options?.date ?? getTodayInSyncTimezone(),
       fallbackAdminManual: true,
     };
   },

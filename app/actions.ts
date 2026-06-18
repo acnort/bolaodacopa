@@ -39,6 +39,7 @@ import {
   createSignupRequestAction as createSignupRequestInternal,
   createAccessInviteAction as createAccessInviteInternal,
   setupAccessAction as setupAccessInternal,
+  syncResultsProviderManualAction as syncResultsProviderManualInternal,
   updateCurrentProfileAction as updateCurrentProfileInternal,
   updateMemberRoleAction as updateMemberRoleInternal,
 } from "@/lib/services/app-service";
@@ -445,6 +446,19 @@ export async function clearOfficialResults(
   void _prevState;
 
   const result = await clearOfficialResultsInternal();
+  revalidatePath("/app");
+  revalidatePath("/app/admin/resultados");
+  revalidatePath("/app/resultados");
+  revalidatePath("/app/ranking");
+  return result;
+}
+
+export async function syncResultsProvider(
+  _prevState: ActionResult | undefined,
+) {
+  void _prevState;
+
+  const result = await syncResultsProviderManualInternal();
   revalidatePath("/app");
   revalidatePath("/app/admin/resultados");
   revalidatePath("/app/resultados");

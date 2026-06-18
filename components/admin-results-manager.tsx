@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ClearResultsDialog } from "@/components/forms/clear-results-dialog";
 import { OfficialResultForm } from "@/components/forms/official-result-form";
 import { PlacementResultForm } from "@/components/forms/placement-result-form";
+import { SyncResultsButton } from "@/components/forms/sync-results-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,6 +86,7 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
               Resultados publicados: {snapshot.results.length}/
               {snapshot.matches.length}
             </div>
+            <SyncResultsButton />
             <ClearResultsDialog
               disabled={
                 snapshot.results.length === 0 &&
