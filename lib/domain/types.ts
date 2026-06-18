@@ -217,6 +217,8 @@ export interface SyncedMatchInput {
   matchId: string;
   externalMatchId: string;
   kickoffAt: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
   status: MatchStatus;
   homeScore?: number;
   awayScore?: number;

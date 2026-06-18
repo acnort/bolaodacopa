@@ -256,14 +256,43 @@ export function syncMatchesDemo(
     );
     if (!match) continue;
 
+    const shouldSwapScores =
+      input.homeTeamId !== undefined &&
+      input.awayTeamId !== undefined &&
+      match.homeTeamId === input.awayTeamId &&
+      match.awayTeamId === input.homeTeamId;
+
     match.externalMatchId = input.externalMatchId;
     match.kickoffAt = input.kickoffAt;
+    match.homeTeamId = input.homeTeamId ?? match.homeTeamId;
+    match.awayTeamId = input.awayTeamId ?? match.awayTeamId;
     match.status = mergeSyncedMatchStatus({
       currentStatus: match.status,
       inputStatus: input.status,
       hasScore: input.homeScore !== undefined && input.awayScore !== undefined,
     });
     updatedMatches += 1;
+
+    if (shouldSwapScores) {
+      for (const prediction of state.snapshot.matchPredictions.filter(
+        (item) => item.matchId === input.matchId,
+      )) {
+        const homeScore = prediction.homeScore;
+        prediction.homeScore = prediction.awayScore;
+        prediction.awayScore = homeScore;
+        prediction.updatedAt = nowIso();
+      }
+
+      const existingResult = state.snapshot.results.find(
+        (item) => item.matchId === input.matchId,
+      );
+      if (existingResult) {
+        const homeScore = existingResult.homeScore;
+        existingResult.homeScore = existingResult.awayScore;
+        existingResult.awayScore = homeScore;
+        existingResult.publishedAt = nowIso();
+      }
+    }
 
     if (input.homeScore === undefined || input.awayScore === undefined) {
       continue;

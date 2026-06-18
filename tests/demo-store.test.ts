@@ -188,6 +188,43 @@ describe("demo store", () => {
     ).toBe(updatedKickoffAt);
   });
 
+  it("updates reversed match order and preserves prediction intent", () => {
+    const match = getDemoSnapshot().matches.find(
+      (item) =>
+        item.status === "scheduled" && item.homeTeamId && item.awayTeamId,
+    )!;
+
+    saveMatchPredictionDemo({
+      userId: "user-ana",
+      matchId: match.id,
+      homeScore: 1,
+      awayScore: 2,
+    });
+
+    const result = syncMatchesDemo([
+      {
+        matchId: match.id,
+        externalMatchId: "external-1",
+        kickoffAt: match.kickoffAt,
+        homeTeamId: match.awayTeamId,
+        awayTeamId: match.homeTeamId,
+        status: "scheduled",
+      },
+    ]);
+
+    const snapshot = getDemoSnapshot();
+    const updatedMatch = snapshot.matches.find((item) => item.id === match.id);
+    const updatedPrediction = snapshot.matchPredictions.find(
+      (item) => item.userId === "user-ana" && item.matchId === match.id,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updatedMatch?.homeTeamId).toBe(match.awayTeamId);
+    expect(updatedMatch?.awayTeamId).toBe(match.homeTeamId);
+    expect(updatedPrediction?.homeScore).toBe(2);
+    expect(updatedPrediction?.awayScore).toBe(1);
+  });
+
   it("does not regress in-progress matches to scheduled during sync", () => {
     const matchId = getDemoSnapshot().matches.find(
       (match) => match.status === "scheduled",

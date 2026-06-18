@@ -1457,12 +1457,33 @@ export async function syncMatchesPostgres(
     await client.query("begin");
 
     for (const input of inputs) {
+      const currentMatchResult = await client.query<{
+        home_team_id: string | null;
+        away_team_id: string | null;
+      }>(
+        `
+          select home_team_id, away_team_id
+          from matches
+          where id = $1
+          for update
+        `,
+        [input.matchId],
+      );
+      const currentMatch = currentMatchResult.rows[0];
+      const shouldSwapScores =
+        input.homeTeamId !== undefined &&
+        input.awayTeamId !== undefined &&
+        currentMatch?.home_team_id === input.awayTeamId &&
+        currentMatch.away_team_id === input.homeTeamId;
+
       const matchResult = await client.query(
         `
           update matches
           set
             external_match_id = $2,
             kickoff_at = $3,
+            home_team_id = coalesce($6, home_team_id),
+            away_team_id = coalesce($7, away_team_id),
             status = case
               when status = 'completed' then 'completed'
               when $4 = 'completed' then 'completed'
@@ -1479,10 +1500,38 @@ export async function syncMatchesPostgres(
           input.kickoffAt,
           input.status,
           input.homeScore !== undefined && input.awayScore !== undefined,
+          input.homeTeamId,
+          input.awayTeamId,
         ],
       );
 
       updatedMatches += matchResult.rowCount ?? 0;
+
+      if (shouldSwapScores) {
+        await client.query(
+          `
+            update match_predictions
+            set
+              home_score = away_score,
+              away_score = home_score,
+              updated_at = $2
+            where match_id = $1
+          `,
+          [input.matchId, nowIso()],
+        );
+
+        await client.query(
+          `
+            update official_results
+            set
+              home_score = away_score,
+              away_score = home_score,
+              published_at = $2
+            where match_id = $1
+          `,
+          [input.matchId, nowIso()],
+        );
+      }
 
       if (input.homeScore !== undefined && input.awayScore !== undefined) {
         await client.query(

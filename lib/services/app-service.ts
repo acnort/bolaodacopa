@@ -541,8 +541,10 @@ function findMatchingInternalMatch(
     (match) =>
       !usedMatchIds.has(match.id) &&
       match.phaseId === externalMatch.phaseId &&
-      match.homeTeamId === externalMatch.homeTeamId &&
-      match.awayTeamId === externalMatch.awayTeamId,
+      ((match.homeTeamId === externalMatch.homeTeamId &&
+        match.awayTeamId === externalMatch.awayTeamId) ||
+        (match.homeTeamId === externalMatch.awayTeamId &&
+          match.awayTeamId === externalMatch.homeTeamId)),
   );
 }
 
@@ -754,6 +756,7 @@ export async function syncResultsProviderAction(
   recordProviderCalls(providerData.externalCalls);
   const providerMatches = providerData.matches;
   const providerResults = providerData.results;
+  const validTeamIds = new Set(snapshot.teams.map((team) => team.id));
   const resultsByExternalId = new Map(
     providerResults.map((result) => [result.matchId, result]),
   );
@@ -781,6 +784,14 @@ export async function syncResultsProviderAction(
       matchId: internalMatch.id,
       externalMatchId,
       kickoffAt: externalMatch.kickoffAt,
+      homeTeamId:
+        externalMatch.homeTeamId && validTeamIds.has(externalMatch.homeTeamId)
+          ? externalMatch.homeTeamId
+          : undefined,
+      awayTeamId:
+        externalMatch.awayTeamId && validTeamIds.has(externalMatch.awayTeamId)
+          ? externalMatch.awayTeamId
+          : undefined,
       status: externalMatch.status,
       homeScore: result?.homeScore,
       awayScore: result?.awayScore,
