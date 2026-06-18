@@ -716,9 +716,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       home_score: number;
       away_score: number;
       published_at: string;
+      is_manual: boolean;
     }>(
       `
-        select r.match_id, r.home_score, r.away_score, r.published_at
+        select r.match_id, r.home_score, r.away_score, r.published_at, r.is_manual
         from official_results r
         inner join matches m on m.id = r.match_id
         where m.phase_id in (
@@ -880,6 +881,7 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       homeScore: row.home_score,
       awayScore: row.away_score,
       publishedAt: new Date(row.published_at).toISOString(),
+      isManual: row.is_manual,
     })),
     placementResult: placementResult.rows[0]
       ? {
@@ -1371,13 +1373,14 @@ export async function saveOfficialResultPostgres(
 
     await client.query(
       `
-        insert into official_results (match_id, home_score, away_score, published_at)
-        values ($1, $2, $3, $4)
+        insert into official_results (match_id, home_score, away_score, published_at, is_manual)
+        values ($1, $2, $3, $4, true)
         on conflict (match_id)
         do update set
           home_score = excluded.home_score,
           away_score = excluded.away_score,
-          published_at = excluded.published_at
+          published_at = excluded.published_at,
+          is_manual = true
       `,
       [input.matchId, input.homeScore, input.awayScore, nowIso()],
     );
@@ -1527,26 +1530,27 @@ export async function syncMatchesPostgres(
               home_score = away_score,
               away_score = home_score,
               published_at = $2
-            where match_id = $1
+            where match_id = $1 and is_manual = false
           `,
           [input.matchId, nowIso()],
         );
       }
 
       if (input.homeScore !== undefined && input.awayScore !== undefined) {
-        await client.query(
+        const result = await client.query(
           `
-            insert into official_results (match_id, home_score, away_score, published_at)
-            values ($1, $2, $3, $4)
+            insert into official_results (match_id, home_score, away_score, published_at, is_manual)
+            values ($1, $2, $3, $4, false)
             on conflict (match_id)
             do update set
               home_score = excluded.home_score,
               away_score = excluded.away_score,
               published_at = excluded.published_at
+            where official_results.is_manual = false
           `,
           [input.matchId, input.homeScore, input.awayScore, nowIso()],
         );
-        updatedResults += 1;
+        updatedResults += result.rowCount ?? 0;
       }
     }
 

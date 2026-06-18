@@ -201,6 +201,7 @@ export function saveOfficialResultDemo(
     existing.homeScore = input.homeScore;
     existing.awayScore = input.awayScore;
     existing.publishedAt = nowIso();
+    existing.isManual = true;
     return {
       ok: true,
       message: "Resultado oficial atualizado.",
@@ -213,6 +214,7 @@ export function saveOfficialResultDemo(
     homeScore: input.homeScore,
     awayScore: input.awayScore,
     publishedAt: nowIso(),
+    isManual: true,
   });
 
   return {
@@ -286,7 +288,7 @@ export function syncMatchesDemo(
       const existingResult = state.snapshot.results.find(
         (item) => item.matchId === input.matchId,
       );
-      if (existingResult) {
+      if (existingResult && !existingResult.isManual) {
         const homeScore = existingResult.homeScore;
         existingResult.homeScore = existingResult.awayScore;
         existingResult.awayScore = homeScore;
@@ -303,6 +305,10 @@ export function syncMatchesDemo(
     );
 
     if (existing) {
+      if (existing.isManual) {
+        continue;
+      }
+
       existing.homeScore = input.homeScore;
       existing.awayScore = input.awayScore;
       existing.publishedAt = nowIso();
@@ -312,6 +318,7 @@ export function syncMatchesDemo(
         homeScore: input.homeScore,
         awayScore: input.awayScore,
         publishedAt: nowIso(),
+        isManual: false,
       });
     }
 

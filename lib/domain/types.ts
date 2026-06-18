@@ -122,6 +122,7 @@ export interface OfficialResult {
   homeScore: number;
   awayScore: number;
   publishedAt: string;
+  isManual?: boolean;
 }
 
 export interface PlacementResult {

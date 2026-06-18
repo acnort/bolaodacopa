@@ -118,7 +118,8 @@ create table if not exists official_results (
   match_id text primary key references matches(id) on delete cascade,
   home_score integer not null check (home_score >= 0),
   away_score integer not null check (away_score >= 0),
-  published_at timestamptz not null default timezone('utc', now())
+  published_at timestamptz not null default timezone('utc', now()),
+  is_manual boolean not null default false
 );
 
 create table if not exists placement_results (

@@ -225,6 +225,38 @@ describe("demo store", () => {
     expect(updatedPrediction?.awayScore).toBe(1);
   });
 
+  it("does not overwrite manual official results during sync", () => {
+    const match = getDemoSnapshot().matches.find(
+      (item) => item.status === "scheduled",
+    )!;
+
+    const manualResult = saveOfficialResultDemo({
+      matchId: match.id,
+      homeScore: 2,
+      awayScore: 0,
+      status: "completed",
+    });
+    const syncResult = syncMatchesDemo([
+      {
+        matchId: match.id,
+        externalMatchId: "external-1",
+        kickoffAt: match.kickoffAt,
+        status: "in_progress",
+        homeScore: 1,
+        awayScore: 0,
+      },
+    ]);
+    const result = getDemoSnapshot().results.find(
+      (item) => item.matchId === match.id,
+    );
+
+    expect(manualResult.ok).toBe(true);
+    expect(syncResult.ok).toBe(true);
+    expect(result?.homeScore).toBe(2);
+    expect(result?.awayScore).toBe(0);
+    expect(result?.isManual).toBe(true);
+  });
+
   it("does not regress in-progress matches to scheduled during sync", () => {
     const matchId = getDemoSnapshot().matches.find(
       (match) => match.status === "scheduled",
