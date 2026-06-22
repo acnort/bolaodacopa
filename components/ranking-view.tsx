@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -41,6 +41,7 @@ import {
 import {
   buildLeaderboard,
   buildLiveLeaderboardMovements,
+  isMatchResultPublic,
   isPhasePredictionVisible,
   scoreMatchPrediction,
 } from "@/lib/domain/scoring";
@@ -58,6 +59,7 @@ import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
 const RANKING_REFRESH_INTERVAL_MS = 60 * 1000;
 const SHOW_AI_STORAGE_KEY = "bolao-ranking-show-ai";
+const SHOW_AI_STORAGE_EVENT = "bolao-ranking-show-ai-change";
 
 function getPositionClasses(position: number) {
   if (position === 1) {
@@ -70,6 +72,29 @@ function getPositionClasses(position: number) {
     return "bg-[#d9ad7c] text-[#5a3412]";
   }
   return "bg-[color:var(--surface-muted)] text-[color:var(--text-strong)]";
+}
+
+function subscribeShowAiStorage(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handleChange = () => onStoreChange();
+  window.addEventListener("storage", handleChange);
+  window.addEventListener(SHOW_AI_STORAGE_EVENT, handleChange);
+
+  return () => {
+    window.removeEventListener("storage", handleChange);
+    window.removeEventListener(SHOW_AI_STORAGE_EVENT, handleChange);
+  };
+}
+
+function getShowAiStorageSnapshot() {
+  if (typeof window === "undefined") return false;
+
+  return window.localStorage.getItem(SHOW_AI_STORAGE_KEY) === "true";
+}
+
+function getShowAiServerSnapshot() {
+  return false;
 }
 
 function LiveMovementPill({ positionDelta }: { positionDelta: number }) {
@@ -224,6 +249,36 @@ interface MatchPredictionScoreRow {
   description: string;
 }
 
+interface ScoredMatchRow {
+  matchId: string;
+  kickoffAt: string;
+  homeTeam: string;
+  homeTeamCode?: string;
+  awayTeam: string;
+  awayTeamCode?: string;
+  officialScore: string;
+  predictedScore: string;
+  points: number;
+  description: string;
+}
+
+function formatScoredMatchDate(kickoffAt: string) {
+  const date = new Date(kickoffAt);
+
+  if (!Number.isFinite(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: APP_TIME_ZONE,
+  }).format(date);
+}
+
 function getMatchPredictionRows({
   match,
   profilesById,
@@ -268,6 +323,132 @@ function getMatchPredictionRows({
 
       return left.displayName.localeCompare(right.displayName, "pt-BR");
     });
+}
+
+function ScoredMatchPointsDialog({
+  displayName,
+  rows,
+  totalPoints,
+  variant = "inline",
+}: {
+  displayName: string;
+  rows: ScoredMatchRow[];
+  totalPoints: number;
+  variant?: "inline" | "card";
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        {variant === "card" ? (
+          <button
+            type="button"
+            className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-center transition hover:bg-[color:var(--surface-subtle)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-base)] focus-visible:outline-none"
+            aria-label={`Ver partidas pontuadas de ${displayName}`}
+          >
+            <span className="block text-[10px] font-bold tracking-[0.14em] text-[color:var(--text-muted)] uppercase">
+              Pontos
+            </span>
+            <span className="block text-lg leading-tight font-black text-[color:var(--accent-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4">
+              {totalPoints}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="inline-flex min-w-12 items-center justify-center rounded-md px-2 py-1 text-base font-black text-[color:var(--accent-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4 transition hover:bg-[color:var(--surface-muted)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:outline-none"
+            aria-label={`Ver partidas pontuadas de ${displayName}`}
+          >
+            {totalPoints}
+          </button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="flex max-h-[82vh] w-[min(94vw,56rem)] flex-col overflow-hidden">
+        <DialogHeader className="pr-8">
+          <DialogTitle>{displayName}</DialogTitle>
+          <DialogDescription>
+            Partidas que somaram pontos, em ordem cronológica.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          {rows.length === 0 ? (
+            <p className="rounded-lg bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
+              Nenhuma partida pontuada por este usuário.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-[color:var(--border-subtle)]">
+              <Table className="min-w-[680px]">
+                <TableHeader className="bg-[color:var(--surface-muted)]">
+                  <TableRow>
+                    <TableHead>Partida</TableHead>
+                    <TableHead className="w-[110px] text-center">
+                      Oficial
+                    </TableHead>
+                    <TableHead className="w-[110px] text-center">
+                      Palpite
+                    </TableHead>
+                    <TableHead className="w-[130px] text-center">
+                      Pontos somados
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.matchId}>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-xs font-medium text-[color:var(--text-muted)]">
+                            {formatScoredMatchDate(row.kickoffAt)}
+                          </div>
+                          <div className="grid min-w-0 gap-1 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-2">
+                            <span className="inline-flex min-w-0 items-center gap-2 font-medium">
+                              <TeamFlag
+                                code={row.homeTeamCode}
+                                className="h-4 w-4 shrink-0 rounded-full"
+                              />
+                              <span className="truncate">{row.homeTeam}</span>
+                            </span>
+                            <span className="hidden text-[color:var(--text-muted)] sm:inline">
+                              x
+                            </span>
+                            <span className="inline-flex min-w-0 items-center gap-2 font-medium sm:justify-end">
+                              <span className="truncate sm:text-right">
+                                {row.awayTeam}
+                              </span>
+                              <TeamFlag
+                                code={row.awayTeamCode}
+                                className="h-4 w-4 shrink-0 rounded-full"
+                              />
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="neutral" size="small">
+                          {row.officialScore}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {row.predictedScore}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex min-w-12 justify-center rounded-md bg-[color:var(--success-soft)] px-2 py-1 text-sm font-black text-[color:var(--success-strong)]">
+                          +{row.points}
+                        </span>
+                        <div className="mt-1 text-[11px] font-medium text-[color:var(--text-muted)]">
+                          {row.description}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function MatchPredictionsDialog({
@@ -438,10 +619,11 @@ export function RankingView({
   const visibleAtDate = new Date(visibleAt);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [currentTime, setCurrentTime] = useState(visibleAtDate);
-  const [showAi, setShowAi] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(SHOW_AI_STORAGE_KEY) === "true";
-  });
+  const showAi = useSyncExternalStore(
+    subscribeShowAiStorage,
+    getShowAiStorageSnapshot,
+    getShowAiServerSnapshot,
+  );
   const todayDateKey = getDateKeyInAppTimeZone(currentTime.toISOString());
   const [selectedDateKey, setSelectedDateKey] = useState(() =>
     getDateKeyInAppTimeZone(visibleAtDate.toISOString()),
@@ -475,6 +657,12 @@ export function RankingView({
   );
   const resultsByMatchId = new Map(
     activeSnapshot.results.map((result) => [result.matchId, result]),
+  );
+  const matchesById = new Map(
+    activeSnapshot.matches.map((match) => [match.id, match]),
+  );
+  const rulesByPhaseId = new Map(
+    activeSnapshot.rules.map((rule) => [rule.phaseId, rule]),
   );
   const currentUserPredictionsByMatchId = new Map(
     currentUserMatchPredictions.map((prediction) => [
@@ -597,6 +785,67 @@ export function RankingView({
 
     return { visiblePredictions, visiblePlacementPrediction };
   };
+  const getScoredMatchRowsForUser = (userId: string): ScoredMatchRow[] =>
+    rankingSnapshot.matchPredictions
+      .filter((prediction) => prediction.userId === userId)
+      .flatMap((prediction) => {
+        const match = matchesById.get(prediction.matchId);
+        const result = resultsByMatchId.get(prediction.matchId);
+
+        if (
+          !match ||
+          !result ||
+          !isMatchResultPublic(match, result, visibleAtDate)
+        ) {
+          return [];
+        }
+
+        const rule = rulesByPhaseId.get(match.phaseId);
+        if (!rule) return [];
+
+        const score = scoreMatchPrediction(prediction, result, rule);
+        if (score.points <= 0) return [];
+
+        const homeTeam = match.homeTeamId
+          ? teamsById.get(match.homeTeamId)
+          : undefined;
+        const awayTeam = match.awayTeamId
+          ? teamsById.get(match.awayTeamId)
+          : undefined;
+
+        return [
+          {
+            matchId: match.id,
+            kickoffAt: match.kickoffAt,
+            homeTeam: getTeamOrPlaceholder(
+              activeSnapshot.teams,
+              match.homeTeamId,
+              match.homePlaceholder,
+            ),
+            homeTeamCode: homeTeam?.code,
+            awayTeam: getTeamOrPlaceholder(
+              activeSnapshot.teams,
+              match.awayTeamId,
+              match.awayPlaceholder,
+            ),
+            awayTeamCode: awayTeam?.code,
+            officialScore: `${result.homeScore} x ${result.awayScore}`,
+            predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
+            points: score.points,
+            description: score.description,
+          },
+        ];
+      })
+      .sort((left, right) => {
+        const leftTime = new Date(left.kickoffAt).getTime();
+        const rightTime = new Date(right.kickoffAt).getTime();
+
+        if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+          return leftTime - rightTime;
+        }
+
+        return left.matchId.localeCompare(right.matchId);
+      });
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -608,11 +857,8 @@ export function RankingView({
   }, [router]);
 
   const toggleShowAi = () => {
-    setShowAi((current) => {
-      const next = !current;
-      window.localStorage.setItem(SHOW_AI_STORAGE_KEY, String(next));
-      return next;
-    });
+    window.localStorage.setItem(SHOW_AI_STORAGE_KEY, String(!showAi));
+    window.dispatchEvent(new Event(SHOW_AI_STORAGE_EVENT));
   };
 
   const openDatePicker = () => {
@@ -674,6 +920,9 @@ export function RankingView({
                     leaderboard[index - 1]?.position !== entry.position;
                   const { visiblePredictions, visiblePlacementPrediction } =
                     getPredictionDialogData(entry.userId);
+                  const scoredMatchRows = getScoredMatchRowsForUser(
+                    entry.userId,
+                  );
 
                   return (
                     <div
@@ -727,14 +976,12 @@ export function RankingView({
                           </div>
                         </div>
                         <div className="flex shrink-0 items-start gap-2">
-                          <div className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-center">
-                            <div className="text-[10px] font-bold tracking-[0.14em] text-[color:var(--text-muted)] uppercase">
-                              Pontos
-                            </div>
-                            <div className="text-lg leading-tight font-black">
-                              {entry.totalPoints}
-                            </div>
-                          </div>
+                          <ScoredMatchPointsDialog
+                            displayName={entry.displayName}
+                            rows={scoredMatchRows}
+                            totalPoints={entry.totalPoints}
+                            variant="card"
+                          />
                           <RankingRowPredictionsDialog
                             displayName={entry.displayName}
                             matchPredictions={visiblePredictions}
@@ -791,6 +1038,9 @@ export function RankingView({
                         leaderboard[index - 1]?.position !== entry.position;
                       const { visiblePredictions, visiblePlacementPrediction } =
                         getPredictionDialogData(entry.userId);
+                      const scoredMatchRows = getScoredMatchRowsForUser(
+                        entry.userId,
+                      );
 
                       return (
                         <TableRow
@@ -844,8 +1094,12 @@ export function RankingView({
                           <TableCell className="text-center">
                             {entry.outcomeHits}
                           </TableCell>
-                          <TableCell className="text-md text-center font-bold">
-                            {entry.totalPoints}
+                          <TableCell className="text-center">
+                            <ScoredMatchPointsDialog
+                              displayName={entry.displayName}
+                              rows={scoredMatchRows}
+                              totalPoints={entry.totalPoints}
+                            />
                           </TableCell>
                           <TableCell className="text-right">
                             <RankingRowPredictionsDialog
