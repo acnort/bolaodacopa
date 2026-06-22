@@ -342,20 +342,20 @@ function ScoredMatchPointsDialog({
         {variant === "card" ? (
           <button
             type="button"
-            className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-center transition hover:bg-[color:var(--surface-subtle)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-base)] focus-visible:outline-none"
+            className="group cursor-pointer rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-center transition hover:bg-[color:var(--surface-subtle)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-base)] focus-visible:outline-none"
             aria-label={`Ver partidas pontuadas de ${displayName}`}
           >
             <span className="block text-[10px] font-bold tracking-[0.14em] text-[color:var(--text-muted)] uppercase">
               Pontos
             </span>
-            <span className="block text-lg leading-tight font-black text-[color:var(--accent-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4">
+            <span className="block text-lg leading-tight font-black text-[color:var(--text-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4 transition-colors group-hover:text-[color:var(--success-strong)]">
               {totalPoints}
             </span>
           </button>
         ) : (
           <button
             type="button"
-            className="inline-flex min-w-12 items-center justify-center rounded-md px-2 py-1 text-base font-black text-[color:var(--accent-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4 transition hover:bg-[color:var(--surface-muted)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:outline-none"
+            className="inline-flex min-w-12 cursor-pointer items-center justify-center rounded-md px-2 py-1 text-base font-black text-[color:var(--text-strong)] underline decoration-[color:var(--accent-soft)] underline-offset-4 transition hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--success-strong)] focus-visible:text-[color:var(--success-strong)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] focus-visible:outline-none"
             aria-label={`Ver partidas pontuadas de ${displayName}`}
           >
             {totalPoints}
