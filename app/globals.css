@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-:root {
+:root,
+:root[data-resolved-theme="light"] {
+  color-scheme: light;
   --background: #f3f3f3;
   --surface-base: #f7f7f7;
   --surface-elevated: #f7f7f7;
@@ -15,6 +17,7 @@
   --accent-strong-hover: #4e9c63;
   --accent-soft: #acecbd;
   --accent-muted: rgba(78, 156, 99, 0.12);
+  --text-on-accent: #07140b;
   --success-soft: #acecbd;
   --success-strong: #08942e;
   --warning-soft: rgba(7, 6, 6, 0.16);
@@ -22,7 +25,93 @@
   --danger-soft: rgba(107, 107, 107, 0.12);
   --danger: #c42727;
   --danger-strong: #c42727;
+  --text-on-danger: #ffffff;
+  --overlay: rgba(10, 12, 16, 0.45);
+  --avatar-overlay: rgba(0, 0, 0, 0.45);
+  --text-on-overlay: #ffffff;
+  --switch-thumb: #ffffff;
+  --selection-bg: rgba(80, 80, 80, 0.18);
+  --background-glow-start: rgba(255, 255, 255, 0.5);
+  --background-glow-end: rgba(0, 0, 0, 0.03);
+  --grid-line: rgba(31, 31, 31, 0.025);
+  --logo-watermark-opacity: 0.1;
   --shadow-card: 0 10px 30px rgba(17, 17, 17, 0.06);
+}
+
+:root[data-resolved-theme="dark"] {
+  color-scheme: dark;
+  --background: #0f1115;
+  --surface-base: #151820;
+  --surface-elevated: #181c24;
+  --surface-muted: #202530;
+  --surface-subtle: #2b313d;
+  --foreground: #f4f6f8;
+  --text-strong: #f4f6f8;
+  --text-muted: #a8b0bd;
+  --border-subtle: rgba(235, 240, 247, 0.1);
+  --border-strong: rgba(235, 240, 247, 0.2);
+  --accent-strong: #6fd58a;
+  --accent-strong-hover: #8de3a2;
+  --accent-soft: rgba(111, 213, 138, 0.28);
+  --accent-muted: rgba(111, 213, 138, 0.14);
+  --text-on-accent: #07140b;
+  --success-soft: rgba(111, 213, 138, 0.22);
+  --success-strong: #8de3a2;
+  --warning-soft: rgba(246, 196, 83, 0.16);
+  --warning-strong: #f6c453;
+  --danger-soft: rgba(255, 107, 107, 0.16);
+  --danger: #f05b5b;
+  --danger-strong: #ff7777;
+  --text-on-danger: #ffffff;
+  --overlay: rgba(2, 4, 8, 0.64);
+  --avatar-overlay: rgba(2, 4, 8, 0.62);
+  --text-on-overlay: #ffffff;
+  --switch-thumb: #f4f6f8;
+  --selection-bg: rgba(111, 213, 138, 0.24);
+  --background-glow-start: rgba(111, 213, 138, 0.1);
+  --background-glow-end: rgba(255, 255, 255, 0.04);
+  --grid-line: rgba(235, 240, 247, 0.035);
+  --logo-watermark-opacity: 0.06;
+  --shadow-card: 0 18px 48px rgba(0, 0, 0, 0.34);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-resolved-theme]) {
+    color-scheme: dark;
+    --background: #0f1115;
+    --surface-base: #151820;
+    --surface-elevated: #181c24;
+    --surface-muted: #202530;
+    --surface-subtle: #2b313d;
+    --foreground: #f4f6f8;
+    --text-strong: #f4f6f8;
+    --text-muted: #a8b0bd;
+    --border-subtle: rgba(235, 240, 247, 0.1);
+    --border-strong: rgba(235, 240, 247, 0.2);
+    --accent-strong: #6fd58a;
+    --accent-strong-hover: #8de3a2;
+    --accent-soft: rgba(111, 213, 138, 0.28);
+    --accent-muted: rgba(111, 213, 138, 0.14);
+    --text-on-accent: #07140b;
+    --success-soft: rgba(111, 213, 138, 0.22);
+    --success-strong: #8de3a2;
+    --warning-soft: rgba(246, 196, 83, 0.16);
+    --warning-strong: #f6c453;
+    --danger-soft: rgba(255, 107, 107, 0.16);
+    --danger: #f05b5b;
+    --danger-strong: #ff7777;
+    --text-on-danger: #ffffff;
+    --overlay: rgba(2, 4, 8, 0.64);
+    --avatar-overlay: rgba(2, 4, 8, 0.62);
+    --text-on-overlay: #ffffff;
+    --switch-thumb: #f4f6f8;
+    --selection-bg: rgba(111, 213, 138, 0.24);
+    --background-glow-start: rgba(111, 213, 138, 0.1);
+    --background-glow-end: rgba(255, 255, 255, 0.04);
+    --grid-line: rgba(235, 240, 247, 0.035);
+    --logo-watermark-opacity: 0.06;
+    --shadow-card: 0 18px 48px rgba(0, 0, 0, 0.34);
+  }
 }
 
 @theme inline {
@@ -50,10 +139,14 @@ body {
   background-image:
     radial-gradient(
       circle at top left,
-      rgba(255, 255, 255, 0.5),
+      var(--background-glow-start),
       transparent 26%
     ),
-    radial-gradient(circle at top right, rgba(0, 0, 0, 0.03), transparent 22%);
+    radial-gradient(
+      circle at top right,
+      var(--background-glow-end),
+      transparent 22%
+    );
 }
 
 body::before,
@@ -68,7 +161,7 @@ body::after {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  opacity: 0.1;
+  opacity: var(--logo-watermark-opacity);
   pointer-events: none;
   transform: translateY(-50%);
 }
@@ -106,7 +199,7 @@ a {
 }
 
 ::selection {
-  background: rgba(80, 80, 80, 0.18);
+  background: var(--selection-bg);
 }
 
 .surface-grid {
@@ -118,8 +211,8 @@ a {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, rgba(31, 31, 31, 0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(31, 31, 31, 0.025) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 90%);
   pointer-events: none;

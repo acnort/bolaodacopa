@@ -21,7 +21,10 @@ export function DrawerOverlay({
 }: React.ComponentProps<typeof DrawerPrimitive.Overlay>) {
   return (
     <DrawerPrimitive.Overlay
-      className={cn("fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm", className)}
+      className={cn(
+        "fixed inset-0 z-40 bg-[color:var(--overlay)] backdrop-blur-sm",
+        className,
+      )}
       {...props}
     />
   );
@@ -37,7 +40,7 @@ export function DrawerContent({
       <DrawerOverlay />
       <DrawerPrimitive.Content
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 rounded-t-xl border border-b-0 border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] p-5 shadow-[var(--shadow-card)]",
+          "fixed inset-x-0 bottom-0 z-50 max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-t-xl border border-b-0 border-[color:var(--border-subtle)] bg-[color:var(--surface-base)] p-5 shadow-[var(--shadow-card)]",
           className,
         )}
         {...props}
@@ -62,7 +65,10 @@ export function DrawerTitle({
 }: React.ComponentProps<typeof DrawerPrimitive.Title>) {
   return (
     <DrawerPrimitive.Title
-      className={cn("text-lg font-semibold text-[color:var(--text-strong)]", className)}
+      className={cn(
+        "text-lg font-semibold text-[color:var(--text-strong)]",
+        className,
+      )}
       {...props}
     />
   );

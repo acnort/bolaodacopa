@@ -903,7 +903,7 @@ export function RankingView({
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition ${
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-[color:var(--switch-thumb)] transition ${
                       showAi ? "left-3.5" : "left-0.5"
                     }`}
                   />

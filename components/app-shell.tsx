@@ -20,9 +20,14 @@ import {
 } from "lucide-react";
 
 import { signOut } from "@/app/actions";
-import { SandboxToggle } from "@/components/sandbox-toggle";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -148,7 +153,7 @@ function NavigationLinks({
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
                         active
-                          ? "bg-[color:var(--accent-strong)] text-white"
+                          ? "bg-[color:var(--accent-strong)] text-[color:var(--text-on-accent)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text-strong)]",
                       )}
                     >
@@ -174,7 +179,7 @@ function NavigationLinks({
             className={cn(
               "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition",
               active
-                ? "bg-[color:var(--accent-strong)] text-white"
+                ? "bg-[color:var(--accent-strong)] text-[color:var(--text-on-accent)]"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text-strong)]",
             )}
           >
@@ -238,8 +243,8 @@ export function AppShell({
               onNavigate={setOptimisticPath}
             />
           </div>
-          <div className="space-y-3">
-            {isAdmin ? <SandboxToggle /> : null}
+          <div className="space-y-3 pt-5">
+            <ThemeSwitcher className="ml-4" />
             <Link
               href="/app/perfil"
               onClick={() =>
@@ -248,7 +253,7 @@ export function AppShell({
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition",
                 profileActive
-                  ? "bg-[color:var(--accent-strong)] text-white"
+                  ? "bg-[color:var(--accent-strong)] text-[color:var(--text-on-accent)]"
                   : "text-[color:var(--text-strong)] hover:bg-[color:var(--surface-muted)]",
               )}
             >
@@ -317,6 +322,7 @@ export function AppShell({
               </div>
             </div>
             <DrawerContent className="lg:hidden">
+              <DrawerTitle className="sr-only">Menu</DrawerTitle>
               <Link
                 href="/app/perfil"
                 onClick={() => {
@@ -346,7 +352,7 @@ export function AppShell({
                 }}
               />
               <div className="mt-3 space-y-3">
-                {isAdmin ? <SandboxToggle /> : null}
+                <ThemeSwitcher className="ml-4" />
                 <SignOutForm />
               </div>
             </DrawerContent>

@@ -75,7 +75,7 @@ export function ProfileForm({ user }: { user: Profile }) {
                   avatarUrl={previewUrl ?? user.avatarUrl}
                   className="h-28 w-28 text-2xl transition group-hover:brightness-75"
                 />
-                <span className="absolute inset-0 grid place-items-center rounded-full bg-black/45 text-white opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
+                <span className="absolute inset-0 grid place-items-center rounded-full bg-[color:var(--avatar-overlay)] text-[color:var(--text-on-overlay)] opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100">
                   <Camera className="h-6 w-6" />
                 </span>
                 <span className="sr-only">Alterar foto do perfil</span>

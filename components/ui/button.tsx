@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[color:var(--accent-strong)] text-white shadow-[var(--shadow-card)] hover:bg-[color:var(--accent-strong-hover)] focus-visible:ring-[color:var(--accent-strong)]",
+          "bg-[color:var(--accent-strong)] text-[color:var(--text-on-accent)] shadow-[var(--shadow-card)] hover:bg-[color:var(--accent-strong-hover)] focus-visible:ring-[color:var(--accent-strong)]",
         secondary:
           "bg-[color:var(--surface-muted)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:ring-[color:var(--accent-soft)]",
         outline:
@@ -18,7 +18,7 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent text-[color:var(--text-strong)] hover:bg-[color:var(--surface-muted)] focus-visible:ring-[color:var(--accent-soft)]",
         danger:
-          "bg-[color:var(--danger)] text-white hover:bg-[color:var(--danger-strong)] focus-visible:ring-[color:var(--danger)]",
+          "bg-[color:var(--danger)] text-[color:var(--text-on-danger)] hover:bg-[color:var(--danger-strong)] focus-visible:ring-[color:var(--danger)]",
       },
       size: {
         sm: "h-9 px-4",
@@ -35,7 +35,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
