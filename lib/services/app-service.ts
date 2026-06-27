@@ -13,6 +13,7 @@ import {
 import {
   buildLeaderboard,
   buildScoreEntries,
+  isMatchPredictionOpen,
   isPhasePredictionVisible,
   isRuleOpen,
 } from "@/lib/domain/scoring";
@@ -814,8 +815,8 @@ export async function saveMatchPredictionAction(
     ? snapshot.rules.find((item) => item.phaseId === match.phaseId)
     : undefined;
 
-  if (!match || !rule || !rule.enableMatchPredictions || !isRuleOpen(rule)) {
-    return { ok: false, message: "A fase está fechada para edição." };
+  if (!isMatchPredictionOpen(rule, match)) {
+    return { ok: false, message: "Este jogo está fechado para edição." };
   }
 
   if (isDatabaseConfigured()) {
@@ -888,16 +889,26 @@ export async function savePhasePredictionsBatchAction(
 
   const rule = snapshot.rules.find((item) => item.phaseId === input.phaseId);
 
-  if (!rule || !isRuleOpen(rule)) {
+  if (
+    !rule ||
+    rule.status !== "active" ||
+    new Date(rule.opensAt) > new Date()
+  ) {
+    return { ok: false, message: "A fase está fechada para edição." };
+  }
+
+  if (rule.enablePlacementPredictions && !isRuleOpen(rule)) {
     return { ok: false, message: "A fase está fechada para edição." };
   }
 
   if (rule.enableMatchPredictions) {
-    const phaseMatchIds = new Set(
-      snapshot.matches
-        .filter((match) => match.phaseId === input.phaseId)
-        .map((match) => match.id),
+    const phaseMatches = snapshot.matches.filter(
+      (match) => match.phaseId === input.phaseId,
     );
+    const phaseMatchesById = new Map(
+      phaseMatches.map((match) => [match.id, match]),
+    );
+    const phaseMatchIds = new Set(phaseMatches.map((match) => match.id));
 
     for (const prediction of input.predictions) {
       if (!phaseMatchIds.has(prediction.matchId)) {
@@ -906,6 +917,18 @@ export async function savePhasePredictionsBatchAction(
           message: "Existe um palpite fora da fase selecionada.",
         };
       }
+    }
+
+    const closedPrediction = input.predictions.find(
+      (prediction) =>
+        !isMatchPredictionOpen(rule, phaseMatchesById.get(prediction.matchId)),
+    );
+
+    if (closedPrediction) {
+      return {
+        ok: false,
+        message: "Existe um palpite de jogo fechado para edição.",
+      };
     }
   }
 

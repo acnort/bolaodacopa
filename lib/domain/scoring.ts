@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain/types";
 
 const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
+const MATCH_PREDICTION_CLOSE_BEFORE_MS = 60 * 60 * 1000;
 
 function getOutcome(homeScore: number, awayScore: number) {
   if (homeScore === awayScore) return "draw";
@@ -22,6 +23,34 @@ export function isRuleOpen(rule: PredictionRule, now = new Date()) {
   const opensAt = new Date(rule.opensAt);
   const closesAt = new Date(rule.closesAt);
   return opensAt <= now && now <= closesAt && rule.status === "active";
+}
+
+export function isPerMatchPredictionPhase(phaseId: string) {
+  return phaseId !== "phase-groups" && phaseId !== "phase-podium";
+}
+
+export function getMatchPredictionClosesAt(match: Pick<Match, "kickoffAt">) {
+  return new Date(
+    new Date(match.kickoffAt).getTime() - MATCH_PREDICTION_CLOSE_BEFORE_MS,
+  );
+}
+
+export function isMatchPredictionOpen(
+  rule: PredictionRule | undefined,
+  match: Pick<Match, "phaseId" | "kickoffAt"> | undefined,
+  now = new Date(),
+) {
+  if (!rule || !match || !rule.enableMatchPredictions) return false;
+  if (rule.status !== "active") return false;
+
+  const opensAt = new Date(rule.opensAt);
+  if (opensAt > now) return false;
+
+  const closesAt = isPerMatchPredictionPhase(match.phaseId)
+    ? getMatchPredictionClosesAt(match)
+    : new Date(rule.closesAt);
+
+  return now <= closesAt;
 }
 
 export function isPhasePredictionVisible(

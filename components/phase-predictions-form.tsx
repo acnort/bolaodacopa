@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,12 +35,27 @@ import type {
   Team,
 } from "@/lib/domain/types";
 import { getTeamOrPlaceholder } from "@/lib/domain/selectors";
+import {
+  getMatchPredictionClosesAt,
+  isMatchPredictionOpen,
+  isPerMatchPredictionPhase,
+} from "@/lib/domain/scoring";
 
 const initialState: ActionResult = { ok: false, message: "" };
 
-function serializeRelevantFormData(formData: FormData) {
+function serializeRelevantFormData(
+  formData: FormData,
+  allowedMatchIds?: Set<string>,
+) {
   return Array.from(formData.entries())
     .filter(([name]) => {
+      if (allowedMatchIds && name.startsWith("homeScore:")) {
+        return allowedMatchIds.has(name.replace("homeScore:", ""));
+      }
+      if (allowedMatchIds && name.startsWith("awayScore:")) {
+        return allowedMatchIds.has(name.replace("awayScore:", ""));
+      }
+
       return (
         name.startsWith("homeScore:") ||
         name.startsWith("awayScore:") ||
@@ -87,12 +109,14 @@ function MatchCard({
   defaultHomeScore,
   defaultAwayScore,
   disabled,
+  closesAt,
 }: {
   match: Match;
   teams: Team[];
   defaultHomeScore?: number;
   defaultAwayScore?: number;
   disabled: boolean;
+  closesAt?: Date;
 }) {
   const homeTeam = teams.find((team) => team.id === match.homeTeamId);
   const awayTeam = teams.find((team) => team.id === match.awayTeamId);
@@ -116,6 +140,11 @@ function MatchCard({
             <div className="mt-1 text-sm font-medium text-[color:var(--text-strong)]">
               {formatDateTime(match.kickoffAt)}
             </div>
+            {closesAt ? (
+              <div className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Fecha em {formatDateTime(closesAt.toISOString())}
+              </div>
+            ) : null}
           </div>
         </div>
       </CardHeader>
@@ -201,11 +230,28 @@ export function PhasePredictionsForm({
   );
   const formRef = useRef<HTMLFormElement>(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
-  const disabled =
-    !rule ||
-    rule.status !== "active" ||
-    new Date(rule.opensAt) > currentTime ||
-    new Date(rule.closesAt) < currentTime;
+  const phaseDisabled =
+    !rule || rule.status !== "active" || new Date(rule.opensAt) > currentTime;
+  const placementDisabled =
+    phaseDisabled || !rule || new Date(rule.closesAt) < currentTime;
+  const usesPerMatchClose = isPerMatchPredictionPhase(phase.id);
+  const getMatchDisabled = useCallback(
+    (match: Match) =>
+      phaseDisabled ||
+      match.status === "completed" ||
+      !isMatchPredictionOpen(rule, match, currentTime),
+    [currentTime, phaseDisabled, rule],
+  );
+  const editableMatchIds = useMemo(
+    () =>
+      new Set(
+        matches
+          .filter((match) => !getMatchDisabled(match))
+          .map((match) => match.id),
+      ),
+    [getMatchDisabled, matches],
+  );
+  const editableMatchIdsRef = useRef(editableMatchIds);
   const isPlacementPhase = Boolean(rule?.enablePlacementPredictions);
   const hasMatchCards = rule?.enableMatchPredictions && matches.length > 0;
   const sections = buildMatchSections(phase, matches);
@@ -216,6 +262,8 @@ export function PhasePredictionsForm({
   }));
   const [savedSnapshot, setSavedSnapshot] = useState(() => {
     const matchEntries = matches.flatMap((match) => {
+      if (!editableMatchIds.has(match.id)) return [];
+
       const values = defaultScores[match.id];
       return [
         [`homeScore:${match.id}`, String(values?.homeScore ?? "").trim()],
@@ -252,11 +300,18 @@ export function PhasePredictionsForm({
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    editableMatchIdsRef.current = editableMatchIds;
+  }, [editableMatchIds]);
+
   const refreshDirtyState = () => {
     const form = formRef.current;
     if (!form) return;
 
-    const currentSnapshot = serializeRelevantFormData(new FormData(form));
+    const currentSnapshot = serializeRelevantFormData(
+      new FormData(form),
+      editableMatchIds,
+    );
     setIsDirty(currentSnapshot !== savedSnapshot);
   };
   const refreshDirtyStateAfterSelect = () => {
@@ -270,6 +325,7 @@ export function PhasePredictionsForm({
     if (state.ok && formRef.current) {
       const currentSnapshot = serializeRelevantFormData(
         new FormData(formRef.current),
+        editableMatchIdsRef.current,
       );
       setSavedSnapshot(currentSnapshot);
       setIsDirty(false);
@@ -296,9 +352,15 @@ export function PhasePredictionsForm({
             </div>
             <div className="flex flex-col gap-2 text-sm text-[color:var(--text-muted)] sm:flex-row sm:items-center">
               <span>
-                Fecha em {rule ? formatDateTime(rule.closesAt) : "sem regra"}
+                {usesPerMatchClose
+                  ? "Fecha 1h antes de cada jogo"
+                  : `Fecha em ${
+                      rule ? formatDateTime(rule.closesAt) : "sem regra"
+                    }`}
               </span>
-              <PhaseCountdownBadge rule={rule} now={currentTime} />
+              {usesPerMatchClose ? null : (
+                <PhaseCountdownBadge rule={rule} now={currentTime} />
+              )}
             </div>
           </div>
 
@@ -351,7 +413,7 @@ export function PhasePredictionsForm({
                 searchPlaceholder="Buscar país"
                 emptyMessage="Nenhum país encontrado."
                 listLabel="Países"
-                disabled={disabled}
+                disabled={placementDisabled}
                 onValueChange={refreshDirtyStateAfterSelect}
               />
             </div>
@@ -367,7 +429,7 @@ export function PhasePredictionsForm({
                 searchPlaceholder="Buscar país"
                 emptyMessage="Nenhum país encontrado."
                 listLabel="Países"
-                disabled={disabled}
+                disabled={placementDisabled}
                 onValueChange={refreshDirtyStateAfterSelect}
               />
             </div>
@@ -383,7 +445,7 @@ export function PhasePredictionsForm({
                 searchPlaceholder="Buscar país"
                 emptyMessage="Nenhum país encontrado."
                 listLabel="Países"
-                disabled={disabled}
+                disabled={placementDisabled}
                 align="end"
                 onValueChange={refreshDirtyStateAfterSelect}
               />
@@ -407,7 +469,12 @@ export function PhasePredictionsForm({
                     teams={teams}
                     defaultHomeScore={defaultScores[match.id]?.homeScore}
                     defaultAwayScore={defaultScores[match.id]?.awayScore}
-                    disabled={disabled || match.status === "completed"}
+                    disabled={getMatchDisabled(match)}
+                    closesAt={
+                      usesPerMatchClose
+                        ? getMatchPredictionClosesAt(match)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -426,13 +493,23 @@ export function PhasePredictionsForm({
 
       <FormFeedback state={state} />
 
-      {isDirty && !disabled ? (
+      {isDirty &&
+      (isPlacementPhase
+        ? !placementDisabled
+        : !phaseDisabled && editableMatchIds.size > 0) ? (
         <div className="sticky bottom-4 z-20">
           <div className="ml-auto flex w-full items-center justify-between gap-4 rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-base)]/95 px-4 py-3 shadow-[var(--shadow-card)] backdrop-blur">
             <div className="text-sm text-[color:var(--text-muted)]">
               Alterações não salvas
             </div>
-            <SubmitButton pendingLabel="Salvando..." disabled={disabled}>
+            <SubmitButton
+              pendingLabel="Salvando..."
+              disabled={
+                isPlacementPhase
+                  ? placementDisabled
+                  : phaseDisabled || editableMatchIds.size === 0
+              }
+            >
               Salvar fase
             </SubmitButton>
           </div>
