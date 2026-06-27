@@ -17,7 +17,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { AppSnapshot } from "@/lib/domain/types";
-import { getSortedPhases, getTeamName } from "@/lib/domain/selectors";
+import {
+  getSortedPhases,
+  getTeamOrPlaceholder,
+} from "@/lib/domain/selectors";
 import { formatDateTime } from "@/lib/formatters";
 
 export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
@@ -31,8 +34,16 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
 
     return snapshot.matches.filter((match) => {
       const result = snapshot.results.find((item) => item.matchId === match.id);
-      const homeTeam = getTeamName(snapshot.teams, match.homeTeamId);
-      const awayTeam = getTeamName(snapshot.teams, match.awayTeamId);
+      const homeTeam = getTeamOrPlaceholder(
+        snapshot.teams,
+        match.homeTeamId,
+        match.homePlaceholder,
+      );
+      const awayTeam = getTeamOrPlaceholder(
+        snapshot.teams,
+        match.awayTeamId,
+        match.awayPlaceholder,
+      );
       const matchesPhase = phaseId === "all" || match.phaseId === phaseId;
       const matchesStatus =
         status === "all" ||
@@ -138,8 +149,16 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
               const result = snapshot.results.find(
                 (item) => item.matchId === match.id,
               );
-              const homeTeam = getTeamName(snapshot.teams, match.homeTeamId);
-              const awayTeam = getTeamName(snapshot.teams, match.awayTeamId);
+              const homeTeam = getTeamOrPlaceholder(
+                snapshot.teams,
+                match.homeTeamId,
+                match.homePlaceholder,
+              );
+              const awayTeam = getTeamOrPlaceholder(
+                snapshot.teams,
+                match.awayTeamId,
+                match.awayPlaceholder,
+              );
 
               return (
                 <div
