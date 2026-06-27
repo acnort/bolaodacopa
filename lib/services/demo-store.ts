@@ -268,6 +268,12 @@ export function syncMatchesDemo(
     match.kickoffAt = input.kickoffAt;
     match.homeTeamId = input.homeTeamId ?? match.homeTeamId;
     match.awayTeamId = input.awayTeamId ?? match.awayTeamId;
+    if (input.homeTeamId) {
+      match.homePlaceholder = undefined;
+    }
+    if (input.awayTeamId) {
+      match.awayPlaceholder = undefined;
+    }
     match.status = mergeSyncedMatchStatus({
       currentStatus: match.status,
       inputStatus: input.status,

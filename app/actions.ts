@@ -39,6 +39,7 @@ import {
   createSignupRequestAction as createSignupRequestInternal,
   createAccessInviteAction as createAccessInviteInternal,
   setupAccessAction as setupAccessInternal,
+  syncNextPhaseMatchesProviderManualAction as syncNextPhaseMatchesProviderManualInternal,
   syncResultsProviderManualAction as syncResultsProviderManualInternal,
   updateCurrentProfileAction as updateCurrentProfileInternal,
   updateMemberRoleAction as updateMemberRoleInternal,
@@ -459,6 +460,19 @@ export async function syncResultsProvider(
   void _prevState;
 
   const result = await syncResultsProviderManualInternal();
+  revalidatePath("/app");
+  revalidatePath("/app/admin/resultados");
+  revalidatePath("/app/resultados");
+  revalidatePath("/app/ranking");
+  return result;
+}
+
+export async function syncNextPhaseMatchesProvider(
+  _prevState: ActionResult | undefined,
+) {
+  void _prevState;
+
+  const result = await syncNextPhaseMatchesProviderManualInternal();
   revalidatePath("/app");
   revalidatePath("/app/admin/resultados");
   revalidatePath("/app/resultados");

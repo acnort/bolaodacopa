@@ -1487,6 +1487,14 @@ export async function syncMatchesPostgres(
             kickoff_at = $3,
             home_team_id = coalesce($6, home_team_id),
             away_team_id = coalesce($7, away_team_id),
+            home_placeholder = case
+              when $6::text is not null then null
+              else home_placeholder
+            end,
+            away_placeholder = case
+              when $7::text is not null then null
+              else away_placeholder
+            end,
             status = case
               when status = 'completed' then 'completed'
               when $4 = 'completed' then 'completed'

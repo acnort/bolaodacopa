@@ -188,6 +188,32 @@ describe("demo store", () => {
     ).toBe(updatedKickoffAt);
   });
 
+  it("clears placeholders when synced teams fill a knockout slot", () => {
+    const match = getDemoSnapshot().matches.find(
+      (item) => item.id === "round32-1",
+    )!;
+
+    const result = syncMatchesDemo([
+      {
+        matchId: match.id,
+        externalMatchId: "external-round32-1",
+        kickoffAt: match.kickoffAt,
+        homeTeamId: "team-bra",
+        awayTeamId: "team-arg",
+        status: "scheduled",
+      },
+    ]);
+    const updatedMatch = getDemoSnapshot().matches.find(
+      (item) => item.id === match.id,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updatedMatch?.homeTeamId).toBe("team-bra");
+    expect(updatedMatch?.awayTeamId).toBe("team-arg");
+    expect(updatedMatch?.homePlaceholder).toBeUndefined();
+    expect(updatedMatch?.awayPlaceholder).toBeUndefined();
+  });
+
   it("updates reversed match order and preserves prediction intent", () => {
     const match = getDemoSnapshot().matches.find(
       (item) =>

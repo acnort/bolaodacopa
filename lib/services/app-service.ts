@@ -19,11 +19,9 @@ import {
 import type {
   ActionResult,
   AppSnapshot,
-  Match,
   PhaseBatchPredictionInput,
   PhaseRuleInput,
   Profile,
-  SyncedMatchInput,
   UserRole,
 } from "@/lib/domain/types";
 import {
@@ -79,6 +77,7 @@ import type {
   ResultsSyncOptions,
   ResultsSyncSummary,
 } from "@/lib/services/results-provider";
+import { buildSyncedMatchInputs } from "@/lib/services/match-sync";
 import {
   getResultsProvider,
   getResultsProviderName,
@@ -89,6 +88,10 @@ import {
   SESSION_TTL_SECONDS,
   verifySessionToken,
 } from "@/lib/services/session-token";
+
+type SyncResultsProviderActionOptions = ResultsSyncOptions & {
+  referenceOpenPhaseSlots?: boolean;
+};
 
 const AUTH_COOKIE_NAME = "bolao-user-id";
 const PROVIDER_RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -518,36 +521,6 @@ export async function getAdminMembersData(): Promise<
   };
 }
 
-function findMatchingInternalMatch(
-  externalMatch: Match,
-  internalMatches: Match[],
-  usedMatchIds: Set<string>,
-) {
-  const externalMatchId = externalMatch.externalMatchId ?? externalMatch.id;
-  const byExternalId = internalMatches.find(
-    (match) =>
-      !usedMatchIds.has(match.id) &&
-      (match.externalMatchId === externalMatchId ||
-        match.id === externalMatchId),
-  );
-
-  if (byExternalId) return byExternalId;
-
-  if (!externalMatch.homeTeamId || !externalMatch.awayTeamId) {
-    return undefined;
-  }
-
-  return internalMatches.find(
-    (match) =>
-      !usedMatchIds.has(match.id) &&
-      match.phaseId === externalMatch.phaseId &&
-      ((match.homeTeamId === externalMatch.homeTeamId &&
-        match.awayTeamId === externalMatch.awayTeamId) ||
-        (match.homeTeamId === externalMatch.awayTeamId &&
-          match.awayTeamId === externalMatch.homeTeamId)),
-  );
-}
-
 function getProviderSyncStateKey(providerName: string) {
   return `results:${providerName}`;
 }
@@ -669,7 +642,7 @@ async function fetchProviderMatchData(
 }
 
 export async function syncResultsProviderAction(
-  options?: ResultsSyncOptions,
+  options?: SyncResultsProviderActionOptions,
 ): Promise<ActionResult<ResultsSyncSummary>> {
   const providerName = getResultsProviderName();
   if (providerName === "mock" || providerName === "unconfigured") {
@@ -756,47 +729,12 @@ export async function syncResultsProviderAction(
   recordProviderCalls(providerData.externalCalls);
   const providerMatches = providerData.matches;
   const providerResults = providerData.results;
-  const validTeamIds = new Set(snapshot.teams.map((team) => team.id));
-  const resultsByExternalId = new Map(
-    providerResults.map((result) => [result.matchId, result]),
-  );
-  const usedMatchIds = new Set<string>();
-  const syncedInputs: SyncedMatchInput[] = [];
-  let unmatchedMatches = 0;
-
-  for (const externalMatch of providerMatches) {
-    const internalMatch = findMatchingInternalMatch(
-      externalMatch,
-      snapshot.matches,
-      usedMatchIds,
-    );
-    const externalMatchId = externalMatch.externalMatchId ?? externalMatch.id;
-
-    if (!internalMatch) {
-      unmatchedMatches += 1;
-      continue;
-    }
-
-    usedMatchIds.add(internalMatch.id);
-    const result = resultsByExternalId.get(externalMatchId);
-
-    syncedInputs.push({
-      matchId: internalMatch.id,
-      externalMatchId,
-      kickoffAt: externalMatch.kickoffAt,
-      homeTeamId:
-        externalMatch.homeTeamId && validTeamIds.has(externalMatch.homeTeamId)
-          ? externalMatch.homeTeamId
-          : undefined,
-      awayTeamId:
-        externalMatch.awayTeamId && validTeamIds.has(externalMatch.awayTeamId)
-          ? externalMatch.awayTeamId
-          : undefined,
-      status: externalMatch.status,
-      homeScore: result?.homeScore,
-      awayScore: result?.awayScore,
-    });
-  }
+  const { syncedInputs, unmatchedMatches } = buildSyncedMatchInputs({
+    snapshot,
+    providerMatches,
+    providerResults,
+    referenceOpenPhaseSlots: options?.referenceOpenPhaseSlots,
+  });
 
   const persisted = isDatabaseConfigured()
     ? await syncMatchesPostgres(syncedInputs)
@@ -842,6 +780,22 @@ export async function syncResultsProviderManualAction(): Promise<
   if (!admin) return forbiddenResult();
 
   return syncResultsProviderAction({ mode: "adaptive", force: true });
+}
+
+export async function syncNextPhaseMatchesProviderManualAction(): Promise<
+  ActionResult<ResultsSyncSummary>
+> {
+  const admin = await requireAdminProfile();
+  if (!admin) return forbiddenResult();
+
+  const result = await syncResultsProviderAction({
+    mode: "daily",
+    force: true,
+    referenceOpenPhaseSlots: true,
+  });
+  return result.ok
+    ? { ...result, message: "Jogos das próximas fases sincronizados." }
+    : result;
 }
 
 export async function saveMatchPredictionAction(
