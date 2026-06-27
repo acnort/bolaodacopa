@@ -4,6 +4,7 @@ import { sampleSnapshot } from "@/lib/data/sample-data";
 import { getSortedPhases } from "@/lib/domain/selectors";
 import {
   getMatchPredictionClosesAt,
+  getNextMatchPredictionClosesAt,
   isMatchPredictionOpen,
   isPhasePredictionVisible,
   isRuleOpen,
@@ -84,5 +85,18 @@ describe("window validation", () => {
     expect(
       isMatchPredictionOpen(rule, match, new Date("2026-07-01T16:00:01.000Z")),
     ).toBe(false);
+  });
+
+  it("finds the next knockout match closing time", () => {
+    const matches = sampleSnapshot.matches.filter(
+      (item) => item.phaseId === "phase-round-32",
+    );
+
+    expect(
+      getNextMatchPredictionClosesAt(
+        matches,
+        new Date("2026-07-01T16:00:01.000Z"),
+      )?.toISOString(),
+    ).toBe("2026-07-01T22:00:00.000Z");
   });
 });

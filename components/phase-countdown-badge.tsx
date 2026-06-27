@@ -1,7 +1,11 @@
 import { Clock3 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import type { PredictionRule } from "@/lib/domain/types";
+import {
+  getNextMatchPredictionClosesAt,
+  isPerMatchPredictionPhase,
+} from "@/lib/domain/scoring";
+import type { Match, PredictionRule } from "@/lib/domain/types";
 
 function formatCountdown(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -25,13 +29,50 @@ function formatCountdown(ms: number) {
   return `${seconds}s`;
 }
 
+export function MatchPredictionCountdownBadge({
+  closesAt,
+  now,
+  compact = false,
+}: {
+  closesAt: Date;
+  now: Date;
+  compact?: boolean;
+}) {
+  const closesInMs = closesAt.getTime() - now.getTime();
+  const className = compact
+    ? "max-w-full gap-1.5 whitespace-normal normal-case tracking-normal"
+    : "gap-1.5 normal-case tracking-normal";
+
+  if (closesInMs <= 0) {
+    return (
+      <Badge variant="danger" className={className}>
+        Palpites encerrados
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant={closesInMs <= 24 * 60 * 60 * 1000 ? "warning" : "success"}
+      className={className}
+    >
+      <Clock3 className="h-3.5 w-3.5 shrink-0" />
+      {compact
+        ? `Fecha em ${formatCountdown(closesInMs)}`
+        : `Fecha em ${formatCountdown(closesInMs)}`}
+    </Badge>
+  );
+}
+
 export function PhaseCountdownBadge({
   rule,
   now,
+  matches,
   compact = false,
 }: {
   rule?: PredictionRule;
   now: Date;
+  matches?: Match[];
   compact?: boolean;
 }) {
   const className = compact
@@ -55,9 +96,7 @@ export function PhaseCountdownBadge({
   }
 
   const opensAt = new Date(rule.opensAt);
-  const closesAt = new Date(rule.closesAt);
   const opensInMs = opensAt.getTime() - now.getTime();
-  const closesInMs = closesAt.getTime() - now.getTime();
 
   if (opensInMs > 0) {
     return (
@@ -66,6 +105,24 @@ export function PhaseCountdownBadge({
       </Badge>
     );
   }
+
+  const usesPerMatchClose = Boolean(
+    rule.enableMatchPredictions &&
+    matches?.some((match) => isPerMatchPredictionPhase(match.phaseId)),
+  );
+  const closesAt = usesPerMatchClose
+    ? getNextMatchPredictionClosesAt(matches ?? [], now)
+    : new Date(rule.closesAt);
+
+  if (!closesAt) {
+    return (
+      <Badge variant="danger" className={className}>
+        Palpites encerrados
+      </Badge>
+    );
+  }
+
+  const closesInMs = closesAt.getTime() - now.getTime();
 
   if (closesInMs <= 0) {
     return (
@@ -81,9 +138,13 @@ export function PhaseCountdownBadge({
       className={className}
     >
       <Clock3 className="h-3.5 w-3.5 shrink-0" />
-      {compact
-        ? `Restam ${formatCountdown(closesInMs)}`
-        : `Restam ${formatCountdown(closesInMs)} para palpitar`}
+      {usesPerMatchClose
+        ? compact
+          ? `Próximo: ${formatCountdown(closesInMs)}`
+          : `Restam ${formatCountdown(closesInMs)} para o próximo jogo`
+        : compact
+          ? `Restam ${formatCountdown(closesInMs)}`
+          : `Restam ${formatCountdown(closesInMs)} para palpitar`}
     </Badge>
   );
 }

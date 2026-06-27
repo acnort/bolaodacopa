@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { MatchPredictionCountdownBadge } from "@/components/phase-countdown-badge";
 import {
   PhaseProgressSidebar,
   type PhaseProgressItem,
@@ -17,6 +19,10 @@ import {
   getTeamOrPlaceholder,
 } from "@/lib/domain/selectors";
 import type { AppSnapshot, Match, Phase } from "@/lib/domain/types";
+import {
+  getMatchPredictionClosesAt,
+  isPerMatchPredictionPhase,
+} from "@/lib/domain/scoring";
 import {
   formatDateTime,
   formatSectionDate,
@@ -67,6 +73,8 @@ function buildPhaseProgressItems({
   selectedPhaseId: string;
 }): PhaseProgressItem[] {
   return phases.map((phase) => {
+    const phaseRule = snapshot.rules.find((rule) => rule.phaseId === phase.id);
+
     if (phase.id === "phase-podium") {
       const publishedCount = [
         snapshot.placementResult.championTeamId,
@@ -88,6 +96,7 @@ function buildPhaseProgressItems({
               ? "complete"
               : "partial",
         isSelected: phase.id === selectedPhaseId,
+        rule: phaseRule,
       };
     }
 
@@ -113,6 +122,8 @@ function buildPhaseProgressItems({
             ? "complete"
             : "partial",
       isSelected: phase.id === selectedPhaseId,
+      rule: phaseRule,
+      matches: phaseMatches,
     };
   });
 }
@@ -120,13 +131,18 @@ function buildPhaseProgressItems({
 function ResultCard({
   match,
   snapshot,
+  currentTime,
 }: {
   match: Match;
   snapshot: AppSnapshot;
+  currentTime: Date;
 }) {
   const result = snapshot.results.find((item) => item.matchId === match.id);
   const homeTeam = snapshot.teams.find((team) => team.id === match.homeTeamId);
   const awayTeam = snapshot.teams.find((team) => team.id === match.awayTeamId);
+  const closesAt = isPerMatchPredictionPhase(match.phaseId)
+    ? getMatchPredictionClosesAt(match)
+    : undefined;
 
   return (
     <Card>
@@ -139,6 +155,15 @@ function ResultCard({
             <div className="mt-1 text-sm font-medium text-[color:var(--text-strong)]">
               {formatDateTime(match.kickoffAt)}
             </div>
+            {closesAt ? (
+              <div className="mt-2">
+                <MatchPredictionCountdownBadge
+                  closesAt={closesAt}
+                  now={currentTime}
+                  compact
+                />
+              </div>
+            ) : null}
           </div>
           <Badge variant={result ? "success" : "neutral"}>
             {result ? "publicado" : "pendente"}
@@ -233,6 +258,7 @@ export function ResultsPageClient({
   const sandboxSnapshot = useSandboxSnapshot();
   const activeSnapshot = sandboxSnapshot ?? snapshot;
   const isSandbox = Boolean(sandboxSnapshot);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const phases = getSortedPhases(activeSnapshot.phases);
   const selectedPhase =
     phases.find((phase) => phase.slug === phaseSlug) ?? phases[0];
@@ -247,6 +273,11 @@ export function ResultsPageClient({
     snapshot: activeSnapshot,
     selectedPhaseId: selectedPhase.id,
   });
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -315,6 +346,7 @@ export function ResultsPageClient({
                         key={match.id}
                         match={match}
                         snapshot={activeSnapshot}
+                        currentTime={currentTime}
                       />
                     ))}
                   </div>

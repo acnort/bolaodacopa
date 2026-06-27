@@ -35,6 +35,19 @@ export function getMatchPredictionClosesAt(match: Pick<Match, "kickoffAt">) {
   );
 }
 
+export function getNextMatchPredictionClosesAt(
+  matches: Array<Pick<Match, "kickoffAt"> & Partial<Pick<Match, "status">>>,
+  now = new Date(),
+) {
+  const nowTimestamp = now.getTime();
+
+  return matches
+    .filter((match) => match.status !== "completed")
+    .map(getMatchPredictionClosesAt)
+    .filter((closesAt) => closesAt.getTime() >= nowTimestamp)
+    .sort((left, right) => left.getTime() - right.getTime())[0];
+}
+
 export function isMatchPredictionOpen(
   rule: PredictionRule | undefined,
   match: Pick<Match, "phaseId" | "kickoffAt"> | undefined,

@@ -14,7 +14,10 @@ import { toast } from "sonner";
 
 import { savePhasePredictionsBatch } from "@/app/actions";
 import { FormFeedback } from "@/components/forms/form-feedback";
-import { PhaseCountdownBadge } from "@/components/phase-countdown-badge";
+import {
+  MatchPredictionCountdownBadge,
+  PhaseCountdownBadge,
+} from "@/components/phase-countdown-badge";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { TeamFlag } from "@/components/team-flag";
 import { Button } from "@/components/ui/button";
@@ -110,6 +113,7 @@ function MatchCard({
   defaultAwayScore,
   disabled,
   closesAt,
+  now,
 }: {
   match: Match;
   teams: Team[];
@@ -117,6 +121,7 @@ function MatchCard({
   defaultAwayScore?: number;
   disabled: boolean;
   closesAt?: Date;
+  now: Date;
 }) {
   const homeTeam = teams.find((team) => team.id === match.homeTeamId);
   const awayTeam = teams.find((team) => team.id === match.awayTeamId);
@@ -141,8 +146,12 @@ function MatchCard({
               {formatDateTime(match.kickoffAt)}
             </div>
             {closesAt ? (
-              <div className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Fecha em {formatDateTime(closesAt.toISOString())}
+              <div className="mt-2 flex justify-end">
+                <MatchPredictionCountdownBadge
+                  closesAt={closesAt}
+                  now={now}
+                  compact
+                />
               </div>
             ) : null}
           </div>
@@ -358,9 +367,11 @@ export function PhasePredictionsForm({
                       rule ? formatDateTime(rule.closesAt) : "sem regra"
                     }`}
               </span>
-              {usesPerMatchClose ? null : (
-                <PhaseCountdownBadge rule={rule} now={currentTime} />
-              )}
+              <PhaseCountdownBadge
+                rule={rule}
+                now={currentTime}
+                matches={matches}
+              />
             </div>
           </div>
 
@@ -475,6 +486,7 @@ export function PhasePredictionsForm({
                         ? getMatchPredictionClosesAt(match)
                         : undefined
                     }
+                    now={currentTime}
                   />
                 ))}
               </div>

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { PhaseCountdownBadge } from "@/components/phase-countdown-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import type { PredictionRule } from "@/lib/domain/types";
+import type { Match, PredictionRule } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
 export type PhaseProgressItem = {
@@ -18,6 +18,7 @@ export type PhaseProgressItem = {
   status: "empty" | "partial" | "complete";
   isSelected: boolean;
   rule?: PredictionRule;
+  matches?: Match[];
 };
 
 function getStatusCopy(status: PhaseProgressItem["status"]) {
@@ -86,6 +87,7 @@ export function PhaseProgressSidebar({
                       <PhaseCountdownBadge
                         rule={item.rule}
                         now={currentTime}
+                        matches={item.matches}
                         compact
                       />
                     </div>
@@ -104,7 +106,8 @@ export function PhaseProgressSidebar({
                       "bg-[color:var(--success-strong)]",
                     item.status === "partial" &&
                       "bg-[color:var(--warning-strong)]",
-                    item.status === "empty" && "bg-[color:var(--border-subtle)]",
+                    item.status === "empty" &&
+                      "bg-[color:var(--border-subtle)]",
                   )}
                   style={{ width: `${completionRatio}%` }}
                 />

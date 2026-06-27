@@ -83,6 +83,7 @@ function buildPhaseProgressItems({
             : "partial",
       isSelected: phase.id === selectedPhaseId,
       rule: phaseRule,
+      matches: phaseMatches,
     };
   });
 }
