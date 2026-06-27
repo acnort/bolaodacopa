@@ -125,6 +125,7 @@ function canSyncTeamsToMatch(
   internalMatch: Match,
   externalMatch: Match,
   snapshot: AppSnapshot,
+  referenceOpenPhaseSlots: boolean,
 ) {
   const previousPhaseId = getPreviousMatchPhaseId(
     snapshot,
@@ -132,6 +133,7 @@ function canSyncTeamsToMatch(
   );
   if (!previousPhaseId) return true;
   if (isPhaseComplete(snapshot, previousPhaseId)) return true;
+  if (referenceOpenPhaseSlots || internalMatch.externalMatchId) return true;
 
   return Boolean(internalMatch.homeTeamId && internalMatch.awayTeamId);
 }
@@ -176,6 +178,7 @@ export function buildSyncedMatchInputs({
       internalMatch,
       externalMatch,
       snapshot,
+      referenceOpenPhaseSlots,
     );
 
     syncedInputs.push({

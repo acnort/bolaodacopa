@@ -92,7 +92,7 @@ describe("match sync input builder", () => {
     ]);
   });
 
-  it("does not sync teams into an externally referenced open slot", () => {
+  it("syncs teams into an externally referenced open slot", () => {
     const snapshot = cloneSnapshot();
     const match = snapshot.matches.find((item) => item.id === "round32-1")!;
     match.externalMatchId = "external-round32-1";
@@ -113,7 +113,34 @@ describe("match sync input builder", () => {
       expect.objectContaining({
         matchId: "round32-1",
         externalMatchId: "external-round32-1",
-        homeTeamId: undefined,
+        homeTeamId: providerMatch.homeTeamId,
+        awayTeamId: providerMatch.awayTeamId,
+      }),
+    ]);
+  });
+
+  it("fills partial team data into a referenced open slot", () => {
+    const snapshot = cloneSnapshot();
+    const providerMatch = buildExternalMatch({
+      id: "external-round32-1",
+      phaseId: "phase-round-32",
+      roundLabel: "16-avos",
+      awayTeamId: undefined,
+    });
+
+    const result = buildSyncedMatchInputs({
+      snapshot,
+      providerMatches: [providerMatch],
+      providerResults: [],
+      referenceOpenPhaseSlots: true,
+    });
+
+    expect(result.unmatchedMatches).toBe(0);
+    expect(result.syncedInputs).toEqual([
+      expect.objectContaining({
+        matchId: "round32-1",
+        externalMatchId: "external-round32-1",
+        homeTeamId: providerMatch.homeTeamId,
         awayTeamId: undefined,
       }),
     ]);
