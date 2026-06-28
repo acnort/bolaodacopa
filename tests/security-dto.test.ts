@@ -12,7 +12,10 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-import { resetDemoStore } from "@/lib/services/demo-store";
+import {
+  resetDemoStore,
+  saveMatchPredictionDemo,
+} from "@/lib/services/demo-store";
 import { getPublicRankingSnapshot } from "@/lib/services/app-service";
 
 describe("security DTOs", () => {
@@ -57,5 +60,29 @@ describe("security DTOs", () => {
 
     expect(beforeClose.matchPredictions).toHaveLength(0);
     expect(afterClose.matchPredictions).toHaveLength(9);
+  });
+
+  it("exposes knockout predictions only after each match closes", async () => {
+    saveMatchPredictionDemo({
+      userId: "user-ana",
+      matchId: "round32-1",
+      homeScore: 1,
+      awayScore: 0,
+    });
+    saveMatchPredictionDemo({
+      userId: "user-ana",
+      matchId: "round32-2",
+      homeScore: 2,
+      awayScore: 1,
+    });
+
+    const snapshot = await getPublicRankingSnapshot(
+      new Date("2026-07-01T16:00:01.000Z"),
+    );
+    const round32MatchIds = snapshot.matchPredictions
+      .map((prediction) => prediction.matchId)
+      .filter((matchId) => matchId.startsWith("round32-"));
+
+    expect(round32MatchIds).toEqual(["round32-1"]);
   });
 });

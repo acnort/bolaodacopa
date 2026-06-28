@@ -41,8 +41,8 @@ import {
 import {
   buildLeaderboard,
   buildLiveLeaderboardMovements,
+  isMatchPredictionVisible,
   isMatchResultPublic,
-  isPhasePredictionVisible,
   scoreMatchPrediction,
 } from "@/lib/domain/scoring";
 import type {
@@ -744,7 +744,7 @@ export function RankingView({
           (item) => item.phaseId === match?.phaseId,
         );
 
-        return isPhasePredictionVisible(rule, visibleAtDate);
+        return isMatchPredictionVisible(rule, match, visibleAtDate);
       })
       .map((prediction) => {
         const match = activeSnapshot.matches.find(
@@ -1313,8 +1313,9 @@ export function RankingView({
                   const rule = activeSnapshot.rules.find(
                     (item) => item.phaseId === match.phaseId,
                   );
-                  const canViewPredictions = isPhasePredictionVisible(
+                  const canViewPredictions = isMatchPredictionVisible(
                     rule,
+                    match,
                     visibleAtDate,
                   );
                   const matchPredictionRows = canViewPredictions

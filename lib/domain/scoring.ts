@@ -76,6 +76,22 @@ export function isPhasePredictionVisible(
   return Number.isFinite(closesAt) && closesAt < now.getTime();
 }
 
+export function isMatchPredictionVisible(
+  rule:
+    | Pick<PredictionRule, "closesAt" | "enableMatchPredictions">
+    | undefined,
+  match: Pick<Match, "phaseId" | "kickoffAt"> | undefined,
+  now = new Date(),
+) {
+  if (!rule || !match || !rule.enableMatchPredictions) return false;
+
+  const closesAt = isPerMatchPredictionPhase(match.phaseId)
+    ? getMatchPredictionClosesAt(match).getTime()
+    : new Date(rule.closesAt).getTime();
+
+  return Number.isFinite(closesAt) && closesAt < now.getTime();
+}
+
 function isPastDate(value: string | undefined, now: Date) {
   if (!value) return false;
 

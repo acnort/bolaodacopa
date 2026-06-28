@@ -5,6 +5,7 @@ import { getSortedPhases } from "@/lib/domain/selectors";
 import {
   getMatchPredictionClosesAt,
   getNextMatchPredictionClosesAt,
+  isMatchPredictionVisible,
   isMatchPredictionOpen,
   isPhasePredictionVisible,
   isRuleOpen,
@@ -85,6 +86,20 @@ describe("window validation", () => {
     expect(
       isMatchPredictionOpen(rule, match, new Date("2026-07-01T16:00:01.000Z")),
     ).toBe(false);
+    expect(
+      isMatchPredictionVisible(
+        rule,
+        match,
+        new Date("2026-07-01T16:00:00.000Z"),
+      ),
+    ).toBe(false);
+    expect(
+      isMatchPredictionVisible(
+        rule,
+        match,
+        new Date("2026-07-01T16:00:01.000Z"),
+      ),
+    ).toBe(true);
   });
 
   it("finds the next knockout match closing time", () => {

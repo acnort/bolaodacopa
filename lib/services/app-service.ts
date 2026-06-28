@@ -13,6 +13,7 @@ import {
 import {
   buildLeaderboard,
   buildScoreEntries,
+  isMatchPredictionVisible,
   isMatchPredictionOpen,
   isPhasePredictionVisible,
   isRuleOpen,
@@ -384,8 +385,9 @@ function getPublicMatchPredictions(snapshot: AppSnapshot, now: Date) {
 
   return snapshot.matchPredictions.filter((prediction) => {
     const match = matchesById.get(prediction.matchId);
-    return isPhasePredictionVisible(
+    return isMatchPredictionVisible(
       match ? rulesByPhaseId.get(match.phaseId) : undefined,
+      match,
       now,
     );
   });
