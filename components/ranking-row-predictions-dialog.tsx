@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -51,6 +52,21 @@ interface TeamPredictionView {
   code?: string;
 }
 
+interface PhasePredictionGroup {
+  phaseId: string;
+  phaseName: string;
+  phaseOrder: number;
+  predictions: MatchPredictionView[];
+}
+
+interface PredictionTab {
+  id: string;
+  label: string;
+  count: number;
+  type: "placement" | "matches";
+  predictions?: MatchPredictionView[];
+}
+
 function sortByKickoff(left: MatchPredictionView, right: MatchPredictionView) {
   const leftTime = new Date(left.kickoffAt).getTime();
   const rightTime = new Date(right.kickoffAt).getTime();
@@ -83,6 +99,45 @@ function groupPredictionsByPhase(predictions: MatchPredictionView[]) {
     phaseOrder: items[0]?.phaseOrder ?? Number.MAX_SAFE_INTEGER,
     predictions: items,
   }));
+}
+
+function getPredictionTabs({
+  groupedPredictions,
+  placementPrediction,
+}: {
+  groupedPredictions: PhasePredictionGroup[];
+  placementPrediction?: PlacementPredictionView;
+}) {
+  const tabs: PredictionTab[] = [];
+
+  if (placementPrediction) {
+    tabs.push({
+      id: "phase-podium",
+      label: "Pódio final",
+      count: 3,
+      type: "placement",
+    });
+  }
+
+  for (const group of groupedPredictions) {
+    tabs.push({
+      id: group.phaseId || group.phaseName,
+      label: group.phaseName,
+      count: group.predictions.length,
+      type: "matches",
+      predictions: group.predictions,
+    });
+  }
+
+  return tabs;
+}
+
+function getDefaultTabId(tabs: PredictionTab[], currentPhaseId?: string) {
+  if (currentPhaseId && tabs.some((tab) => tab.id === currentPhaseId)) {
+    return currentPhaseId;
+  }
+
+  return tabs[tabs.length - 1]?.id ?? "";
 }
 
 function groupPredictionsBySection(
@@ -272,12 +327,19 @@ export function RankingRowPredictionsDialog({
   displayName,
   matchPredictions,
   placementPrediction,
+  currentPhaseId,
 }: {
   displayName: string;
   matchPredictions: MatchPredictionView[];
   placementPrediction?: PlacementPredictionView;
+  currentPhaseId?: string;
 }) {
   const groupedPredictions = groupPredictionsByPhase(matchPredictions);
+  const predictionTabs = getPredictionTabs({
+    groupedPredictions,
+    placementPrediction,
+  });
+  const defaultTabId = getDefaultTabId(predictionTabs, currentPhaseId);
   const hasReleasedContent =
     Boolean(placementPrediction) || matchPredictions.length > 0;
 
@@ -307,46 +369,54 @@ export function RankingRowPredictionsDialog({
               Nenhum palpite liberado.
             </div>
           ) : (
-            <div className="space-y-5">
-              {placementPrediction ? (
-                <PlacementPredictionBlock
-                  placementPrediction={placementPrediction}
-                />
-              ) : null}
+            <Tabs defaultValue={defaultTabId}>
+              <div className="overflow-x-auto pb-1">
+                <TabsList className="h-auto min-w-max">
+                  {predictionTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.id}
+                      value={tab.id}
+                      className="h-9 gap-2 px-3 text-xs"
+                    >
+                      {tab.label}
+                      <Badge variant="neutral" size="small">
+                        {tab.count}
+                      </Badge>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
 
-              {groupedPredictions.map((group) => (
-                <section
-                  key={group.phaseId || group.phaseName}
-                  className="space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
-                      {group.phaseName}
-                    </h3>
-                    <Badge variant="neutral" size="small">
-                      {group.predictions.length}
-                    </Badge>
-                  </div>
-                  <div className="space-y-4">
-                    {groupPredictionsBySection(
-                      group.phaseId,
-                      group.predictions,
-                    ).map((section) => (
-                      <div key={section.id} className="space-y-2">
-                        {section.label ? (
-                          <div className="text-xs font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
-                            {section.label}
-                          </div>
-                        ) : null}
-                        <MatchPredictionTable
-                          predictions={section.predictions}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
+              {predictionTabs.map((tab) => (
+                <TabsContent key={tab.id} value={tab.id} className="mt-4">
+                  {tab.type === "placement" && placementPrediction ? (
+                    <PlacementPredictionBlock
+                      placementPrediction={placementPrediction}
+                    />
+                  ) : null}
+
+                  {tab.type === "matches" && tab.predictions ? (
+                    <section className="space-y-4">
+                      {groupPredictionsBySection(
+                        tab.id,
+                        tab.predictions,
+                      ).map((section) => (
+                        <div key={section.id} className="space-y-2">
+                          {section.label ? (
+                            <div className="text-xs font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
+                              {section.label}
+                            </div>
+                          ) : null}
+                          <MatchPredictionTable
+                            predictions={section.predictions}
+                          />
+                        </div>
+                      ))}
+                    </section>
+                  ) : null}
+                </TabsContent>
               ))}
-            </div>
+            </Tabs>
           )}
         </div>
       </DialogContent>

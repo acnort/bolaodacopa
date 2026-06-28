@@ -50,6 +50,7 @@ import type {
   Match,
   MatchPrediction,
   OfficialResult,
+  Phase,
   PredictionRule,
   Profile,
 } from "@/lib/domain/types";
@@ -177,6 +178,25 @@ function getDaySelectorLabel(dateKey: string) {
     month: "short",
     timeZone: APP_TIME_ZONE,
   }).format(date);
+}
+
+function getCurrentPhaseId(phases: Phase[], now: Date) {
+  const nowTime = now.getTime();
+  if (!Number.isFinite(nowTime)) return undefined;
+
+  return phases
+    .filter((phase) => {
+      const startsAt = new Date(phase.startsAt).getTime();
+      const endsAt = new Date(phase.endsAt).getTime();
+
+      return (
+        Number.isFinite(startsAt) &&
+        Number.isFinite(endsAt) &&
+        startsAt <= nowTime &&
+        nowTime <= endsAt
+      );
+    })
+    .sort((left, right) => right.order - left.order)[0]?.id;
 }
 
 function getFeaturedMatchStatusLabel({
@@ -705,6 +725,7 @@ export function RankingView({
       );
     });
   const phases = getSortedPhases(activeSnapshot.phases);
+  const currentPhaseId = getCurrentPhaseId(phases, currentTime);
   const phaseRules = phases
     .map((phase) => ({
       phase,
@@ -986,6 +1007,7 @@ export function RankingView({
                             displayName={entry.displayName}
                             matchPredictions={visiblePredictions}
                             placementPrediction={visiblePlacementPrediction}
+                            currentPhaseId={currentPhaseId}
                           />
                         </div>
                       </div>
@@ -1106,6 +1128,7 @@ export function RankingView({
                               displayName={entry.displayName}
                               matchPredictions={visiblePredictions}
                               placementPrediction={visiblePlacementPrediction}
+                              currentPhaseId={currentPhaseId}
                             />
                           </TableCell>
                         </TableRow>
