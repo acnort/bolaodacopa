@@ -7,6 +7,7 @@ import {
 } from "@/components/phase-progress-sidebar";
 import { Badge } from "@/components/ui/badge";
 import {
+  getCurrentPhase,
   getMatchPrediction,
   getPhaseMatches,
   getPlacementPrediction,
@@ -92,17 +93,21 @@ export function PredictionsPageClient({
   snapshot,
   currentUserId,
   phaseSlug,
+  visibleAt,
 }: {
   snapshot: AppSnapshot;
   currentUserId: string;
   phaseSlug?: string;
+  visibleAt: string;
 }) {
   const sandboxSnapshot = useSandboxSnapshot();
   const activeSnapshot = sandboxSnapshot ?? snapshot;
   const isSandbox = Boolean(sandboxSnapshot);
   const phases = getSortedPhases(activeSnapshot.phases);
   const selectedPhase =
-    phases.find((phase) => phase.slug === phaseSlug) ?? phases[0];
+    phases.find((phase) => phase.slug === phaseSlug) ??
+    getCurrentPhase(phases, new Date(visibleAt)) ??
+    phases[0];
   const phaseIndex = phases.findIndex((phase) => phase.id === selectedPhase.id);
   const rule = activeSnapshot.rules.find(
     (item) => item.phaseId === selectedPhase.id,

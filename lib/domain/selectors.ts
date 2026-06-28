@@ -41,6 +41,25 @@ export function getSortedPhases(phases: Phase[]) {
   return [...phases].sort((a, b) => a.order - b.order);
 }
 
+export function getCurrentPhase(phases: Phase[], now = new Date()) {
+  const nowTime = now.getTime();
+  if (!Number.isFinite(nowTime)) return undefined;
+
+  return phases
+    .filter((phase) => {
+      const startsAt = new Date(phase.startsAt).getTime();
+      const endsAt = new Date(phase.endsAt).getTime();
+
+      return (
+        Number.isFinite(startsAt) &&
+        Number.isFinite(endsAt) &&
+        startsAt <= nowTime &&
+        nowTime <= endsAt
+      );
+    })
+    .sort((left, right) => right.order - left.order)[0];
+}
+
 export function getMatchPrediction(
   predictions: MatchPrediction[],
   userId: string,

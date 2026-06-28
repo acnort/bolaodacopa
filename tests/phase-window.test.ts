@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { sampleSnapshot } from "@/lib/data/sample-data";
-import { getSortedPhases } from "@/lib/domain/selectors";
+import { getCurrentPhase, getSortedPhases } from "@/lib/domain/selectors";
 import {
   getMatchPredictionClosesAt,
   getNextMatchPredictionClosesAt,
@@ -54,6 +54,18 @@ describe("window validation", () => {
     );
     expect(isRuleOpen(podiumRule!, new Date("2026-06-11T15:00:00.000Z"))).toBe(
       false,
+    );
+  });
+
+  it("finds the phase currently in progress", () => {
+    const phases = getSortedPhases(sampleSnapshot.phases);
+
+    expect(getCurrentPhase(phases, new Date("2026-06-28T12:00:00.000Z"))?.id)
+      .toBe("phase-groups");
+    expect(getCurrentPhase(phases, new Date("2026-07-01T15:00:00.000Z"))?.id)
+      .toBe("phase-round-32");
+    expect(getCurrentPhase(phases, new Date("2026-03-31T12:00:00.000Z"))).toBe(
+      undefined,
     );
   });
 
