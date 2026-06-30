@@ -38,6 +38,14 @@ interface ApiFootballFixtureResponse {
         home: number | null;
         away: number | null;
       };
+      extratime?: {
+        home: number | null;
+        away: number | null;
+      };
+      penalty?: {
+        home: number | null;
+        away: number | null;
+      };
     };
   }>;
 }
@@ -133,12 +141,39 @@ function mapFixtureToResult(
     return null;
   }
 
+  const extraTimeScore =
+    fixture.score?.extratime?.home !== null &&
+    fixture.score?.extratime?.home !== undefined &&
+    fixture.score.extratime.away !== null &&
+    fixture.score.extratime.away !== undefined
+      ? {
+          home: homeScore + fixture.score.extratime.home,
+          away: awayScore + fixture.score.extratime.away,
+        }
+      : undefined;
+  const penaltyScore =
+    fixture.score?.penalty?.home !== null &&
+    fixture.score?.penalty?.home !== undefined &&
+    fixture.score.penalty.away !== null &&
+    fixture.score.penalty.away !== undefined &&
+    fixture.goals.home !== null &&
+    fixture.goals.away !== null
+      ? {
+          home: fixture.goals.home,
+          away: fixture.goals.away,
+        }
+      : undefined;
+
   return {
     matchId: String(fixture.fixture.id),
     homeScore,
     awayScore,
     totalHomeScore: fixture.goals.home ?? undefined,
     totalAwayScore: fixture.goals.away ?? undefined,
+    extraTimeHomeScore: extraTimeScore?.home,
+    extraTimeAwayScore: extraTimeScore?.away,
+    penaltyHomeScore: penaltyScore?.home,
+    penaltyAwayScore: penaltyScore?.away,
     publishedAt: new Date().toISOString(),
   };
 }

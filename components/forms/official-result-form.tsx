@@ -28,6 +28,10 @@ export function OfficialResultForm({
     awayScore?: number;
     totalHomeScore?: number;
     totalAwayScore?: number;
+    extraTimeHomeScore?: number;
+    extraTimeAwayScore?: number;
+    penaltyHomeScore?: number;
+    penaltyAwayScore?: number;
     status?: string;
   };
 }) {
@@ -41,7 +45,7 @@ export function OfficialResultForm({
   return (
     <form
       action={formAction}
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_auto] lg:items-end"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(8,minmax(0,1fr))_1.2fr_auto] lg:items-end"
     >
       <input type="hidden" name="matchId" value={matchId} />
       <div className="space-y-2">
@@ -66,6 +70,58 @@ export function OfficialResultForm({
           min={0}
           max={20}
           defaultValue={defaults?.awayScore ?? 0}
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Casa prorr.
+        </label>
+        <Input
+          name="extraTimeHomeScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.extraTimeHomeScore ?? ""}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Fora prorr.
+        </label>
+        <Input
+          name="extraTimeAwayScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.extraTimeAwayScore ?? ""}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Casa pên.
+        </label>
+        <Input
+          name="penaltyHomeScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.penaltyHomeScore ?? ""}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Fora pên.
+        </label>
+        <Input
+          name="penaltyAwayScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.penaltyAwayScore ?? ""}
+          placeholder="Opcional"
         />
       </div>
       <div className="space-y-2">
@@ -112,7 +168,7 @@ export function OfficialResultForm({
       <SubmitButton size="sm" pendingLabel="Publicando...">
         Publicar
       </SubmitButton>
-      <div className="sm:col-span-2 lg:col-span-6">
+      <div className="sm:col-span-2 lg:col-span-10">
         <FormFeedback state={state} />
       </div>
     </form>

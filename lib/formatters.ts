@@ -75,3 +75,60 @@ export function getTotalScoreLabel(
 
   return formatScore(result.totalHomeScore, result.totalAwayScore);
 }
+
+type OfficialScoreBreakdown = {
+  homeScore: number;
+  awayScore: number;
+  totalHomeScore?: number;
+  totalAwayScore?: number;
+  extraTimeHomeScore?: number;
+  extraTimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
+};
+
+export function getOfficialScoreLabel(
+  result: OfficialScoreBreakdown | undefined,
+) {
+  if (!result) return undefined;
+  const extraTimeHomeScore = result.extraTimeHomeScore;
+  const extraTimeAwayScore = result.extraTimeAwayScore;
+
+  if (
+    extraTimeHomeScore !== undefined &&
+    extraTimeAwayScore !== undefined &&
+    (extraTimeHomeScore !== result.homeScore ||
+      extraTimeAwayScore !== result.awayScore)
+  ) {
+    return `(${extraTimeHomeScore}) ${formatScore(
+      result.homeScore,
+      result.awayScore,
+    )} (${extraTimeAwayScore})`;
+  }
+
+  return formatScore(result.homeScore, result.awayScore);
+}
+
+export function getOfficialScoreDetailLabel(
+  result: OfficialScoreBreakdown | undefined,
+) {
+  if (!result) return undefined;
+  const penaltyHomeScore = result.penaltyHomeScore;
+  const penaltyAwayScore = result.penaltyAwayScore;
+
+  if (penaltyHomeScore !== undefined && penaltyAwayScore !== undefined) {
+    return `Pên. ${formatScore(penaltyHomeScore, penaltyAwayScore)}`;
+  }
+
+  if (
+    result.extraTimeHomeScore !== undefined &&
+    result.extraTimeAwayScore !== undefined &&
+    result.totalHomeScore === result.extraTimeHomeScore &&
+    result.totalAwayScore === result.extraTimeAwayScore
+  ) {
+    return undefined;
+  }
+
+  const totalScoreLabel = getTotalScoreLabel(result);
+  return totalScoreLabel ? `Total ${totalScoreLabel}` : undefined;
+}

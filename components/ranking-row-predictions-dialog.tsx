@@ -36,7 +36,7 @@ interface MatchPredictionView {
   awayTeamCode?: string;
   predictedScore: string;
   officialScore: string;
-  officialTotalScore?: string;
+  officialScoreDetail?: string;
 }
 
 interface PlacementPredictionView {
@@ -252,9 +252,9 @@ function MatchPredictionTable({
                     <Badge variant="neutral" size="small">
                       {prediction.officialScore}
                     </Badge>
-                    {prediction.officialTotalScore ? (
+                    {prediction.officialScoreDetail ? (
                       <div className="text-[11px] font-medium text-[color:var(--text-muted)]">
-                        Total {prediction.officialTotalScore}
+                        {prediction.officialScoreDetail}
                       </div>
                     ) : null}
                   </div>

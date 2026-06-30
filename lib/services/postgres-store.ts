@@ -717,6 +717,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       away_score: number;
       total_home_score: number | null;
       total_away_score: number | null;
+      extra_time_home_score: number | null;
+      extra_time_away_score: number | null;
+      penalty_home_score: number | null;
+      penalty_away_score: number | null;
       published_at: string;
       is_manual: boolean;
     }>(
@@ -727,6 +731,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
           r.away_score,
           r.total_home_score,
           r.total_away_score,
+          r.extra_time_home_score,
+          r.extra_time_away_score,
+          r.penalty_home_score,
+          r.penalty_away_score,
           r.published_at,
           r.is_manual
         from official_results r
@@ -891,6 +899,10 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       awayScore: row.away_score,
       totalHomeScore: row.total_home_score ?? undefined,
       totalAwayScore: row.total_away_score ?? undefined,
+      extraTimeHomeScore: row.extra_time_home_score ?? undefined,
+      extraTimeAwayScore: row.extra_time_away_score ?? undefined,
+      penaltyHomeScore: row.penalty_home_score ?? undefined,
+      penaltyAwayScore: row.penalty_away_score ?? undefined,
       publishedAt: new Date(row.published_at).toISOString(),
       isManual: row.is_manual,
     })),
@@ -1390,16 +1402,24 @@ export async function saveOfficialResultPostgres(
           away_score,
           total_home_score,
           total_away_score,
+          extra_time_home_score,
+          extra_time_away_score,
+          penalty_home_score,
+          penalty_away_score,
           published_at,
           is_manual
         )
-        values ($1, $2, $3, $4, $5, $6, true)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
         on conflict (match_id)
         do update set
           home_score = excluded.home_score,
           away_score = excluded.away_score,
           total_home_score = excluded.total_home_score,
           total_away_score = excluded.total_away_score,
+          extra_time_home_score = excluded.extra_time_home_score,
+          extra_time_away_score = excluded.extra_time_away_score,
+          penalty_home_score = excluded.penalty_home_score,
+          penalty_away_score = excluded.penalty_away_score,
           published_at = excluded.published_at,
           is_manual = true
       `,
@@ -1409,6 +1429,10 @@ export async function saveOfficialResultPostgres(
         input.awayScore,
         input.totalHomeScore ?? null,
         input.totalAwayScore ?? null,
+        input.extraTimeHomeScore ?? null,
+        input.extraTimeAwayScore ?? null,
+        input.penaltyHomeScore ?? null,
+        input.penaltyAwayScore ?? null,
         nowIso(),
       ],
     );
@@ -1567,6 +1591,10 @@ export async function syncMatchesPostgres(
               away_score = home_score,
               total_home_score = total_away_score,
               total_away_score = total_home_score,
+              extra_time_home_score = extra_time_away_score,
+              extra_time_away_score = extra_time_home_score,
+              penalty_home_score = penalty_away_score,
+              penalty_away_score = penalty_home_score,
               published_at = $2
             where match_id = $1 and is_manual = false
           `,
@@ -1583,16 +1611,24 @@ export async function syncMatchesPostgres(
               away_score,
               total_home_score,
               total_away_score,
+              extra_time_home_score,
+              extra_time_away_score,
+              penalty_home_score,
+              penalty_away_score,
               published_at,
               is_manual
             )
-            values ($1, $2, $3, $4, $5, $6, false)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false)
             on conflict (match_id)
             do update set
               home_score = excluded.home_score,
               away_score = excluded.away_score,
               total_home_score = excluded.total_home_score,
               total_away_score = excluded.total_away_score,
+              extra_time_home_score = excluded.extra_time_home_score,
+              extra_time_away_score = excluded.extra_time_away_score,
+              penalty_home_score = excluded.penalty_home_score,
+              penalty_away_score = excluded.penalty_away_score,
               published_at = excluded.published_at
             where official_results.is_manual = false
           `,
@@ -1602,6 +1638,10 @@ export async function syncMatchesPostgres(
             input.awayScore,
             input.totalHomeScore ?? null,
             input.totalAwayScore ?? null,
+            input.extraTimeHomeScore ?? null,
+            input.extraTimeAwayScore ?? null,
+            input.penaltyHomeScore ?? null,
+            input.penaltyAwayScore ?? null,
             nowIso(),
           ],
         );

@@ -202,6 +202,10 @@ export function buildSyncedMatchInputs({
       awayScore: result?.awayScore,
       totalHomeScore: result?.totalHomeScore,
       totalAwayScore: result?.totalAwayScore,
+      extraTimeHomeScore: result?.extraTimeHomeScore,
+      extraTimeAwayScore: result?.extraTimeAwayScore,
+      penaltyHomeScore: result?.penaltyHomeScore,
+      penaltyAwayScore: result?.penaltyAwayScore,
     });
   }
 

@@ -185,6 +185,10 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
                       awayScore: result?.awayScore,
                       totalHomeScore: result?.totalHomeScore,
                       totalAwayScore: result?.totalAwayScore,
+                      extraTimeHomeScore: result?.extraTimeHomeScore,
+                      extraTimeAwayScore: result?.extraTimeAwayScore,
+                      penaltyHomeScore: result?.penaltyHomeScore,
+                      penaltyAwayScore: result?.penaltyAwayScore,
                       status: match.status,
                     }}
                   />

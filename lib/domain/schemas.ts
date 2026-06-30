@@ -69,6 +69,10 @@ export const officialResultSchema = z
     awayScore: z.coerce.number().int().min(0).max(20),
     totalHomeScore: optionalScoreSchema,
     totalAwayScore: optionalScoreSchema,
+    extraTimeHomeScore: optionalScoreSchema,
+    extraTimeAwayScore: optionalScoreSchema,
+    penaltyHomeScore: optionalScoreSchema,
+    penaltyAwayScore: optionalScoreSchema,
     status: z.enum(["scheduled", "in_progress", "completed"]),
   })
   .refine(
@@ -80,6 +84,28 @@ export const officialResultSchema = z
     {
       message: "Preencha os dois lados do placar total.",
       path: ["totalAwayScore"],
+    },
+  )
+  .refine(
+    (value) =>
+      (value.extraTimeHomeScore === undefined &&
+        value.extraTimeAwayScore === undefined) ||
+      (value.extraTimeHomeScore !== undefined &&
+        value.extraTimeAwayScore !== undefined),
+    {
+      message: "Preencha os dois lados do placar da prorrogação.",
+      path: ["extraTimeAwayScore"],
+    },
+  )
+  .refine(
+    (value) =>
+      (value.penaltyHomeScore === undefined &&
+        value.penaltyAwayScore === undefined) ||
+      (value.penaltyHomeScore !== undefined &&
+        value.penaltyAwayScore !== undefined),
+    {
+      message: "Preencha os dois lados do placar dos pênaltis.",
+      path: ["penaltyAwayScore"],
     },
   );
 

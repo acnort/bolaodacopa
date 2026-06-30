@@ -123,6 +123,10 @@ export interface OfficialResult {
   awayScore: number;
   totalHomeScore?: number;
   totalAwayScore?: number;
+  extraTimeHomeScore?: number;
+  extraTimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
   publishedAt: string;
   isManual?: boolean;
 }
@@ -215,6 +219,10 @@ export interface OfficialResultInput {
   awayScore: number;
   totalHomeScore?: number;
   totalAwayScore?: number;
+  extraTimeHomeScore?: number;
+  extraTimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
   status: MatchStatus;
 }
 
@@ -229,6 +237,10 @@ export interface SyncedMatchInput {
   awayScore?: number;
   totalHomeScore?: number;
   totalAwayScore?: number;
+  extraTimeHomeScore?: number;
+  extraTimeAwayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
 }
 
 export interface PlacementResultInput {

@@ -1085,6 +1085,10 @@ export async function saveOfficialResultAction(
     awayScore: Number(formData.get("awayScore") ?? 0),
     totalHomeScore: getOptionalScore(formData.get("totalHomeScore")),
     totalAwayScore: getOptionalScore(formData.get("totalAwayScore")),
+    extraTimeHomeScore: getOptionalScore(formData.get("extraTimeHomeScore")),
+    extraTimeAwayScore: getOptionalScore(formData.get("extraTimeAwayScore")),
+    penaltyHomeScore: getOptionalScore(formData.get("penaltyHomeScore")),
+    penaltyAwayScore: getOptionalScore(formData.get("penaltyAwayScore")),
     status: String(formData.get("status") ?? "completed") as
       | "scheduled"
       | "in_progress"

@@ -220,15 +220,32 @@ function mapMatch(match: FootballDataMatchesResponse["matches"][number]): Match 
   };
 }
 
+function hasCompleteScorePair(
+  score: { home: number | null; away: number | null } | undefined,
+): score is { home: number; away: number } {
+  return (
+    score?.home !== null &&
+    score?.home !== undefined &&
+    score.away !== null &&
+    score.away !== undefined
+  );
+}
+
+function addScorePairs(
+  base: { home: number; away: number },
+  addition: { home: number; away: number },
+) {
+  return {
+    home: base.home + addition.home,
+    away: base.away + addition.away,
+  };
+}
+
 function mapResult(
   match: FootballDataMatchesResponse["matches"][number],
 ): OfficialResult | null {
   const regularTime = match.score.regularTime;
-  const hasRegularTime =
-    regularTime?.home !== null &&
-    regularTime?.home !== undefined &&
-    regularTime.away !== null &&
-    regularTime.away !== undefined;
+  const hasRegularTime = hasCompleteScorePair(regularTime);
   const isCompleted = toMatchStatus(match.status) === "completed";
   const isNonRegularCompleted =
     isCompleted &&
@@ -252,6 +269,18 @@ function mapResult(
 
   const totalHomeScore = match.score.fullTime.home;
   const totalAwayScore = match.score.fullTime.away;
+  const extraTimeScore =
+    hasRegularTime && hasCompleteScorePair(match.score.extraTime)
+      ? addScorePairs(regularTime, match.score.extraTime)
+      : match.score.duration === "EXTRA_TIME" &&
+          hasCompleteScorePair(match.score.fullTime)
+        ? match.score.fullTime
+        : undefined;
+  const penaltyScore =
+    match.score.duration === "PENALTY_SHOOTOUT" &&
+    hasCompleteScorePair(match.score.fullTime)
+      ? match.score.fullTime
+      : undefined;
 
   return {
     matchId: String(match.id),
@@ -259,6 +288,10 @@ function mapResult(
     awayScore,
     totalHomeScore: totalHomeScore ?? undefined,
     totalAwayScore: totalAwayScore ?? undefined,
+    extraTimeHomeScore: extraTimeScore?.home,
+    extraTimeAwayScore: extraTimeScore?.away,
+    penaltyHomeScore: penaltyScore?.home,
+    penaltyAwayScore: penaltyScore?.away,
     publishedAt: new Date().toISOString(),
   };
 }

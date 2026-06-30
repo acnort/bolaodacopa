@@ -202,6 +202,10 @@ export function saveOfficialResultDemo(
     existing.awayScore = input.awayScore;
     existing.totalHomeScore = input.totalHomeScore;
     existing.totalAwayScore = input.totalAwayScore;
+    existing.extraTimeHomeScore = input.extraTimeHomeScore;
+    existing.extraTimeAwayScore = input.extraTimeAwayScore;
+    existing.penaltyHomeScore = input.penaltyHomeScore;
+    existing.penaltyAwayScore = input.penaltyAwayScore;
     existing.publishedAt = nowIso();
     existing.isManual = true;
     return {
@@ -217,6 +221,10 @@ export function saveOfficialResultDemo(
     awayScore: input.awayScore,
     totalHomeScore: input.totalHomeScore,
     totalAwayScore: input.totalAwayScore,
+    extraTimeHomeScore: input.extraTimeHomeScore,
+    extraTimeAwayScore: input.extraTimeAwayScore,
+    penaltyHomeScore: input.penaltyHomeScore,
+    penaltyAwayScore: input.penaltyAwayScore,
     publishedAt: nowIso(),
     isManual: true,
   });
@@ -305,6 +313,12 @@ export function syncMatchesDemo(
         const totalHomeScore = existingResult.totalHomeScore;
         existingResult.totalHomeScore = existingResult.totalAwayScore;
         existingResult.totalAwayScore = totalHomeScore;
+        const extraTimeHomeScore = existingResult.extraTimeHomeScore;
+        existingResult.extraTimeHomeScore = existingResult.extraTimeAwayScore;
+        existingResult.extraTimeAwayScore = extraTimeHomeScore;
+        const penaltyHomeScore = existingResult.penaltyHomeScore;
+        existingResult.penaltyHomeScore = existingResult.penaltyAwayScore;
+        existingResult.penaltyAwayScore = penaltyHomeScore;
         existingResult.publishedAt = nowIso();
       }
     }
@@ -326,6 +340,10 @@ export function syncMatchesDemo(
       existing.awayScore = input.awayScore;
       existing.totalHomeScore = input.totalHomeScore;
       existing.totalAwayScore = input.totalAwayScore;
+      existing.extraTimeHomeScore = input.extraTimeHomeScore;
+      existing.extraTimeAwayScore = input.extraTimeAwayScore;
+      existing.penaltyHomeScore = input.penaltyHomeScore;
+      existing.penaltyAwayScore = input.penaltyAwayScore;
       existing.publishedAt = nowIso();
     } else {
       state.snapshot.results.push({
@@ -334,6 +352,10 @@ export function syncMatchesDemo(
         awayScore: input.awayScore,
         totalHomeScore: input.totalHomeScore,
         totalAwayScore: input.totalAwayScore,
+        extraTimeHomeScore: input.extraTimeHomeScore,
+        extraTimeAwayScore: input.extraTimeAwayScore,
+        penaltyHomeScore: input.penaltyHomeScore,
+        penaltyAwayScore: input.penaltyAwayScore,
         publishedAt: nowIso(),
         isManual: false,
       });

@@ -25,10 +25,10 @@ import {
 } from "@/lib/domain/scoring";
 import {
   formatDateTime,
-  formatScore,
   formatSectionDate,
   getDateKeyInAppTimeZone,
-  getTotalScoreLabel,
+  getOfficialScoreDetailLabel,
+  getOfficialScoreLabel,
 } from "@/lib/formatters";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
@@ -142,7 +142,7 @@ function ResultCard({
   const result = snapshot.results.find((item) => item.matchId === match.id);
   const homeTeam = snapshot.teams.find((team) => team.id === match.homeTeamId);
   const awayTeam = snapshot.teams.find((team) => team.id === match.awayTeamId);
-  const totalScoreLabel = getTotalScoreLabel(result);
+  const scoreDetailLabel = getOfficialScoreDetailLabel(result);
   const closesAt = isPerMatchPredictionPhase(match.phaseId)
     ? getMatchPredictionClosesAt(match)
     : undefined;
@@ -187,7 +187,7 @@ function ResultCard({
           </div>
 
           <div className="rounded-lg bg-[color:var(--surface-muted)] px-3 py-2 text-base font-bold text-[color:var(--text-strong)] sm:px-4 sm:text-lg">
-            {result ? formatScore(result.homeScore, result.awayScore) : "- x -"}
+            {getOfficialScoreLabel(result) ?? "- x -"}
           </div>
 
           <div className="flex min-w-0 items-center justify-end gap-3">
@@ -202,11 +202,10 @@ function ResultCard({
           </div>
         </div>
 
-        {totalScoreLabel ? (
+        {scoreDetailLabel ? (
           <div className="text-center text-xs font-medium text-[color:var(--text-muted)]">
-            Total final:{" "}
             <span className="font-bold text-[color:var(--text-strong)]">
-              {totalScoreLabel}
+              {scoreDetailLabel}
             </span>
           </div>
         ) : null}

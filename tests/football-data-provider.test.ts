@@ -14,7 +14,7 @@ describe("football-data provider", () => {
     vi.stubEnv("FOOTBALL_DATA_BASE_URL", "https://api.example.test");
   }
 
-  it("scores penalty shootout matches by regular time and stores full-time total", async () => {
+  it("scores penalty shootout matches by regular time and stores score breakdowns", async () => {
     configureFootballData();
     vi.stubGlobal(
       "fetch",
@@ -32,11 +32,11 @@ describe("football-data provider", () => {
                 score: {
                   winner: "AWAY_TEAM",
                   duration: "PENALTY_SHOOTOUT",
-                  fullTime: { home: 3, away: 4 },
+                  fullTime: { home: 4, away: 3 },
                   halfTime: { home: 0, away: 0 },
                   regularTime: { home: 1, away: 1 },
-                  extraTime: { home: 0, away: 0 },
-                  penalties: { home: 2, away: 3 },
+                  extraTime: { home: 1, away: 1 },
+                  penalties: { home: 2, away: 1 },
                 },
               },
             ],
@@ -52,8 +52,12 @@ describe("football-data provider", () => {
       matchId: "537418",
       homeScore: 1,
       awayScore: 1,
-      totalHomeScore: 3,
-      totalAwayScore: 4,
+      totalHomeScore: 4,
+      totalAwayScore: 3,
+      extraTimeHomeScore: 2,
+      extraTimeAwayScore: 2,
+      penaltyHomeScore: 4,
+      penaltyAwayScore: 3,
     });
   });
 

@@ -56,9 +56,9 @@ import type {
 } from "@/lib/domain/types";
 import {
   APP_TIME_ZONE,
-  formatScore,
   getDateKeyInAppTimeZone,
-  getTotalScoreLabel,
+  getOfficialScoreDetailLabel,
+  getOfficialScoreLabel,
 } from "@/lib/formatters";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
@@ -263,7 +263,7 @@ interface ScoredMatchRow {
   awayTeam: string;
   awayTeamCode?: string;
   officialScore: string;
-  officialTotalScore?: string;
+  officialScoreDetail?: string;
   predictedScore: string;
   points: number;
   description: string;
@@ -435,9 +435,9 @@ function ScoredMatchPointsDialog({
                           <Badge variant="neutral" size="small">
                             {row.officialScore}
                           </Badge>
-                          {row.officialTotalScore ? (
+                          {row.officialScoreDetail ? (
                             <div className="text-[11px] font-medium text-[color:var(--text-muted)]">
-                              Total {row.officialTotalScore}
+                              {row.officialScoreDetail}
                             </div>
                           ) : null}
                         </div>
@@ -765,10 +765,8 @@ export function RankingView({
           awayTeam: getTeamName(activeSnapshot.teams, match?.awayTeamId),
           awayTeamCode: awayTeam?.code,
           predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
-          officialScore: result
-            ? formatScore(result.homeScore, result.awayScore)
-            : "-",
-          officialTotalScore: result ? getTotalScoreLabel(result) : undefined,
+          officialScore: result ? (getOfficialScoreLabel(result) ?? "-") : "-",
+          officialScoreDetail: getOfficialScoreDetailLabel(result),
         };
       });
     const placementPrediction = activeSnapshot.placementPredictions.find(
@@ -845,8 +843,8 @@ export function RankingView({
               match.awayPlaceholder,
             ),
             awayTeamCode: awayTeam?.code,
-            officialScore: formatScore(result.homeScore, result.awayScore),
-            officialTotalScore: getTotalScoreLabel(result),
+            officialScore: getOfficialScoreLabel(result) ?? "-",
+            officialScoreDetail: getOfficialScoreDetailLabel(result),
             predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
             points: score.points,
             description: score.description,
@@ -1323,10 +1321,10 @@ export function RankingView({
                         rule,
                       })
                     : [];
-                  const resultScore = result
-                    ? formatScore(result.homeScore, result.awayScore)
-                    : "Sem placar";
-                  const totalScoreLabel = getTotalScoreLabel(result);
+                  const resultScore =
+                    getOfficialScoreLabel(result) ?? "Sem placar";
+                  const scoreDetailLabel =
+                    getOfficialScoreDetailLabel(result);
 
                   return (
                     <div
@@ -1359,13 +1357,11 @@ export function RankingView({
                             })}
                           </span>
                           <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
-                            {result
-                              ? formatScore(result.homeScore, result.awayScore)
-                              : "x"}
+                            {getOfficialScoreLabel(result) ?? "x"}
                           </div>
-                          {totalScoreLabel ? (
+                          {scoreDetailLabel ? (
                             <span className="max-w-24 text-center text-[10px] leading-tight font-semibold text-[color:var(--text-muted)]">
-                              Total {totalScoreLabel}
+                              {scoreDetailLabel}
                             </span>
                           ) : null}
                         </div>
