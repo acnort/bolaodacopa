@@ -33,6 +33,12 @@ interface ApiFootballFixtureResponse {
       home: number | null;
       away: number | null;
     };
+    score?: {
+      fulltime?: {
+        home: number | null;
+        away: number | null;
+      };
+    };
   }>;
 }
 
@@ -116,14 +122,23 @@ function mapFixtureToMatch(
 function mapFixtureToResult(
   fixture: ApiFootballFixtureResponse["response"][number],
 ): OfficialResult | null {
-  if (fixture.goals.home === null || fixture.goals.away === null) {
+  const isCompleted =
+    toMatchStatus(fixture.fixture.status.short) === "completed";
+  const homeScore =
+    fixture.score?.fulltime?.home ?? (isCompleted ? null : fixture.goals.home);
+  const awayScore =
+    fixture.score?.fulltime?.away ?? (isCompleted ? null : fixture.goals.away);
+
+  if (homeScore === null || awayScore === null) {
     return null;
   }
 
   return {
     matchId: String(fixture.fixture.id),
-    homeScore: fixture.goals.home,
-    awayScore: fixture.goals.away,
+    homeScore,
+    awayScore,
+    totalHomeScore: fixture.goals.home ?? undefined,
+    totalAwayScore: fixture.goals.away ?? undefined,
     publishedAt: new Date().toISOString(),
   };
 }

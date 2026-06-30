@@ -77,4 +77,88 @@ describe("api-football provider", () => {
       expect.any(Object),
     );
   });
+
+  it("maps fulltime as scoring result and goals as total result", async () => {
+    vi.stubEnv("API_FOOTBALL_KEY", "test-key");
+    vi.stubEnv("API_FOOTBALL_LEAGUE_ID", "1");
+    vi.stubEnv("API_FOOTBALL_SEASON", "2026");
+    vi.stubEnv("API_FOOTBALL_BASE_URL", "https://api.example.test");
+    vi.stubEnv("API_FOOTBALL_TIMEZONE", "America/Sao_Paulo");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            response: [
+              {
+                fixture: {
+                  id: 456,
+                  date: "2026-07-01T17:00:00+00:00",
+                  status: { short: "AET" },
+                },
+                league: { round: "16-avos" },
+                teams: {
+                  home: { id: 10, name: "Brasil" },
+                  away: { id: 20, name: "Japão" },
+                },
+                goals: { home: 2, away: 1 },
+                score: {
+                  fulltime: { home: 1, away: 1 },
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const results = await apiFootballProvider.getResults();
+
+    expect(results[0]).toMatchObject({
+      matchId: "456",
+      homeScore: 1,
+      awayScore: 1,
+      totalHomeScore: 2,
+      totalAwayScore: 1,
+    });
+  });
+
+  it("does not score completed fixtures when 90-minute result is missing", async () => {
+    vi.stubEnv("API_FOOTBALL_KEY", "test-key");
+    vi.stubEnv("API_FOOTBALL_LEAGUE_ID", "1");
+    vi.stubEnv("API_FOOTBALL_SEASON", "2026");
+    vi.stubEnv("API_FOOTBALL_BASE_URL", "https://api.example.test");
+    vi.stubEnv("API_FOOTBALL_TIMEZONE", "America/Sao_Paulo");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            response: [
+              {
+                fixture: {
+                  id: 789,
+                  date: "2026-07-01T17:00:00+00:00",
+                  status: { short: "PEN" },
+                },
+                league: { round: "16-avos" },
+                teams: {
+                  home: { id: 10, name: "Brasil" },
+                  away: { id: 20, name: "Japão" },
+                },
+                goals: { home: 2, away: 2 },
+                score: {
+                  fulltime: { home: null, away: null },
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(apiFootballProvider.getResults()).resolves.toEqual([]);
+  });
 });

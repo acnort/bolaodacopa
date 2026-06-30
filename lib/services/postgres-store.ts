@@ -715,11 +715,20 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       match_id: string;
       home_score: number;
       away_score: number;
+      total_home_score: number | null;
+      total_away_score: number | null;
       published_at: string;
       is_manual: boolean;
     }>(
       `
-        select r.match_id, r.home_score, r.away_score, r.published_at, r.is_manual
+        select
+          r.match_id,
+          r.home_score,
+          r.away_score,
+          r.total_home_score,
+          r.total_away_score,
+          r.published_at,
+          r.is_manual
         from official_results r
         inner join matches m on m.id = r.match_id
         where m.phase_id in (
@@ -880,6 +889,8 @@ export async function getPostgresSnapshot(): Promise<AppSnapshot> {
       matchId: row.match_id,
       homeScore: row.home_score,
       awayScore: row.away_score,
+      totalHomeScore: row.total_home_score ?? undefined,
+      totalAwayScore: row.total_away_score ?? undefined,
       publishedAt: new Date(row.published_at).toISOString(),
       isManual: row.is_manual,
     })),
@@ -1373,16 +1384,33 @@ export async function saveOfficialResultPostgres(
 
     await client.query(
       `
-        insert into official_results (match_id, home_score, away_score, published_at, is_manual)
-        values ($1, $2, $3, $4, true)
+        insert into official_results (
+          match_id,
+          home_score,
+          away_score,
+          total_home_score,
+          total_away_score,
+          published_at,
+          is_manual
+        )
+        values ($1, $2, $3, $4, $5, $6, true)
         on conflict (match_id)
         do update set
           home_score = excluded.home_score,
           away_score = excluded.away_score,
+          total_home_score = excluded.total_home_score,
+          total_away_score = excluded.total_away_score,
           published_at = excluded.published_at,
           is_manual = true
       `,
-      [input.matchId, input.homeScore, input.awayScore, nowIso()],
+      [
+        input.matchId,
+        input.homeScore,
+        input.awayScore,
+        input.totalHomeScore ?? null,
+        input.totalAwayScore ?? null,
+        nowIso(),
+      ],
     );
 
     await client.query("commit");
@@ -1537,6 +1565,8 @@ export async function syncMatchesPostgres(
             set
               home_score = away_score,
               away_score = home_score,
+              total_home_score = total_away_score,
+              total_away_score = total_home_score,
               published_at = $2
             where match_id = $1 and is_manual = false
           `,
@@ -1547,16 +1577,33 @@ export async function syncMatchesPostgres(
       if (input.homeScore !== undefined && input.awayScore !== undefined) {
         const result = await client.query(
           `
-            insert into official_results (match_id, home_score, away_score, published_at, is_manual)
-            values ($1, $2, $3, $4, false)
+            insert into official_results (
+              match_id,
+              home_score,
+              away_score,
+              total_home_score,
+              total_away_score,
+              published_at,
+              is_manual
+            )
+            values ($1, $2, $3, $4, $5, $6, false)
             on conflict (match_id)
             do update set
               home_score = excluded.home_score,
               away_score = excluded.away_score,
+              total_home_score = excluded.total_home_score,
+              total_away_score = excluded.total_away_score,
               published_at = excluded.published_at
             where official_results.is_manual = false
           `,
-          [input.matchId, input.homeScore, input.awayScore, nowIso()],
+          [
+            input.matchId,
+            input.homeScore,
+            input.awayScore,
+            input.totalHomeScore ?? null,
+            input.totalAwayScore ?? null,
+            nowIso(),
+          ],
         );
         updatedResults += result.rowCount ?? 0;
       }

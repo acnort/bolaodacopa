@@ -44,3 +44,34 @@ export function getDateKeyInAppTimeZone(value: string) {
 
   return formatter.format(new Date(value));
 }
+
+export function formatScore(homeScore: number, awayScore: number) {
+  return `${homeScore} x ${awayScore}`;
+}
+
+export function getTotalScoreLabel(
+  result:
+    | {
+        homeScore: number;
+        awayScore: number;
+        totalHomeScore?: number;
+        totalAwayScore?: number;
+      }
+    | undefined,
+) {
+  if (
+    result?.totalHomeScore === undefined ||
+    result.totalAwayScore === undefined
+  ) {
+    return undefined;
+  }
+
+  if (
+    result.totalHomeScore === result.homeScore &&
+    result.totalAwayScore === result.awayScore
+  ) {
+    return undefined;
+  }
+
+  return formatScore(result.totalHomeScore, result.totalAwayScore);
+}

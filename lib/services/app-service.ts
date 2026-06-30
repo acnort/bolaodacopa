@@ -119,6 +119,11 @@ const AVATAR_EXTENSIONS_BY_TYPE: Record<string, string> = {
 
 let providerCallTimestamps: number[] = [];
 
+function getOptionalScore(value: FormDataEntryValue | null) {
+  const text = String(value ?? "").trim();
+  return text ? Number(text) : undefined;
+}
+
 function isDevelopmentSessionSecretFallbackEnabled() {
   return process.env.NODE_ENV !== "production";
 }
@@ -1078,6 +1083,8 @@ export async function saveOfficialResultAction(
     matchId: String(formData.get("matchId") ?? ""),
     homeScore: Number(formData.get("homeScore") ?? 0),
     awayScore: Number(formData.get("awayScore") ?? 0),
+    totalHomeScore: getOptionalScore(formData.get("totalHomeScore")),
+    totalAwayScore: getOptionalScore(formData.get("totalAwayScore")),
     status: String(formData.get("status") ?? "completed") as
       | "scheduled"
       | "in_progress"

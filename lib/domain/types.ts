@@ -121,6 +121,8 @@ export interface OfficialResult {
   matchId: string;
   homeScore: number;
   awayScore: number;
+  totalHomeScore?: number;
+  totalAwayScore?: number;
   publishedAt: string;
   isManual?: boolean;
 }
@@ -211,6 +213,8 @@ export interface OfficialResultInput {
   matchId: string;
   homeScore: number;
   awayScore: number;
+  totalHomeScore?: number;
+  totalAwayScore?: number;
   status: MatchStatus;
 }
 
@@ -223,6 +227,8 @@ export interface SyncedMatchInput {
   status: MatchStatus;
   homeScore?: number;
   awayScore?: number;
+  totalHomeScore?: number;
+  totalAwayScore?: number;
 }
 
 export interface PlacementResultInput {

@@ -200,6 +200,8 @@ export function buildSyncedMatchInputs({
       status: externalMatch.status,
       homeScore: result?.homeScore,
       awayScore: result?.awayScore,
+      totalHomeScore: result?.totalHomeScore,
+      totalAwayScore: result?.totalAwayScore,
     });
   }
 

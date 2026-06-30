@@ -17,10 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { AppSnapshot } from "@/lib/domain/types";
-import {
-  getSortedPhases,
-  getTeamOrPlaceholder,
-} from "@/lib/domain/selectors";
+import { getSortedPhases, getTeamOrPlaceholder } from "@/lib/domain/selectors";
 import { formatDateTime } from "@/lib/formatters";
 
 export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
@@ -186,6 +183,8 @@ export function AdminResultsManager({ snapshot }: { snapshot: AppSnapshot }) {
                     defaults={{
                       homeScore: result?.homeScore,
                       awayScore: result?.awayScore,
+                      totalHomeScore: result?.totalHomeScore,
+                      totalAwayScore: result?.totalAwayScore,
                       status: match.status,
                     }}
                   />

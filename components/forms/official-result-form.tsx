@@ -23,7 +23,13 @@ export function OfficialResultForm({
   defaults,
 }: {
   matchId: string;
-  defaults?: { homeScore?: number; awayScore?: number; status?: string };
+  defaults?: {
+    homeScore?: number;
+    awayScore?: number;
+    totalHomeScore?: number;
+    totalAwayScore?: number;
+    status?: string;
+  };
 }) {
   const [state, formAction] = useActionState(saveOfficialResult, initialState);
 
@@ -33,22 +39,63 @@ export function OfficialResultForm({
   }, [state]);
 
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-[1fr_1fr_1.2fr_auto] sm:items-end">
+    <form
+      action={formAction}
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1.2fr_auto] lg:items-end"
+    >
       <input type="hidden" name="matchId" value={matchId} />
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-          Casa
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Casa 90 min
         </label>
-        <Input name="homeScore" type="number" min={0} max={20} defaultValue={defaults?.homeScore ?? 0} />
+        <Input
+          name="homeScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.homeScore ?? 0}
+        />
       </div>
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-          Fora
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Fora 90 min
         </label>
-        <Input name="awayScore" type="number" min={0} max={20} defaultValue={defaults?.awayScore ?? 0} />
+        <Input
+          name="awayScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.awayScore ?? 0}
+        />
       </div>
       <div className="space-y-2">
-        <label className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Casa total
+        </label>
+        <Input
+          name="totalHomeScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.totalHomeScore ?? ""}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
+          Fora total
+        </label>
+        <Input
+          name="totalAwayScore"
+          type="number"
+          min={0}
+          max={20}
+          defaultValue={defaults?.totalAwayScore ?? ""}
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs tracking-[0.18em] text-[color:var(--text-muted)] uppercase">
           Status
         </label>
         <Select defaultValue={defaults?.status ?? "completed"} name="status">
@@ -65,7 +112,7 @@ export function OfficialResultForm({
       <SubmitButton size="sm" pendingLabel="Publicando...">
         Publicar
       </SubmitButton>
-      <div className="sm:col-span-4">
+      <div className="sm:col-span-2 lg:col-span-6">
         <FormFeedback state={state} />
       </div>
     </form>

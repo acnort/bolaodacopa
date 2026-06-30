@@ -36,6 +36,7 @@ interface MatchPredictionView {
   awayTeamCode?: string;
   predictedScore: string;
   officialScore: string;
+  officialTotalScore?: string;
 }
 
 interface PlacementPredictionView {
@@ -207,8 +208,8 @@ function MatchPredictionTable({
             <TableHead className="w-[110px] py-2 text-center">
               Palpite
             </TableHead>
-            <TableHead className="w-[110px] py-2 text-center">
-              Oficial
+            <TableHead className="w-[120px] py-2 text-center">
+              Oficial 90 min
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -247,9 +248,16 @@ function MatchPredictionTable({
                     Pendente
                   </span>
                 ) : (
-                  <Badge variant="neutral" size="small">
-                    {prediction.officialScore}
-                  </Badge>
+                  <div className="space-y-1">
+                    <Badge variant="neutral" size="small">
+                      {prediction.officialScore}
+                    </Badge>
+                    {prediction.officialTotalScore ? (
+                      <div className="text-[11px] font-medium text-[color:var(--text-muted)]">
+                        Total {prediction.officialTotalScore}
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </TableCell>
             </TableRow>
@@ -397,21 +405,20 @@ export function RankingRowPredictionsDialog({
 
                   {tab.type === "matches" && tab.predictions ? (
                     <section className="space-y-4">
-                      {groupPredictionsBySection(
-                        tab.id,
-                        tab.predictions,
-                      ).map((section) => (
-                        <div key={section.id} className="space-y-2">
-                          {section.label ? (
-                            <div className="text-xs font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
-                              {section.label}
-                            </div>
-                          ) : null}
-                          <MatchPredictionTable
-                            predictions={section.predictions}
-                          />
-                        </div>
-                      ))}
+                      {groupPredictionsBySection(tab.id, tab.predictions).map(
+                        (section) => (
+                          <div key={section.id} className="space-y-2">
+                            {section.label ? (
+                              <div className="text-xs font-bold tracking-[0.16em] text-[color:var(--text-muted)] uppercase">
+                                {section.label}
+                              </div>
+                            ) : null}
+                            <MatchPredictionTable
+                              predictions={section.predictions}
+                            />
+                          </div>
+                        ),
+                      )}
                     </section>
                   ) : null}
                 </TabsContent>

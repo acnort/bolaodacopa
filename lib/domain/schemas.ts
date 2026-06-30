@@ -57,12 +57,31 @@ export const placementPredictionSchema = z
     path: ["thirdPlaceTeamId"],
   });
 
-export const officialResultSchema = z.object({
-  matchId: z.string().min(1),
-  homeScore: z.coerce.number().int().min(0).max(20),
-  awayScore: z.coerce.number().int().min(0).max(20),
-  status: z.enum(["scheduled", "in_progress", "completed"]),
-});
+const optionalScoreSchema = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce.number().int().min(0).max(20).optional(),
+);
+
+export const officialResultSchema = z
+  .object({
+    matchId: z.string().min(1),
+    homeScore: z.coerce.number().int().min(0).max(20),
+    awayScore: z.coerce.number().int().min(0).max(20),
+    totalHomeScore: optionalScoreSchema,
+    totalAwayScore: optionalScoreSchema,
+    status: z.enum(["scheduled", "in_progress", "completed"]),
+  })
+  .refine(
+    (value) =>
+      (value.totalHomeScore === undefined &&
+        value.totalAwayScore === undefined) ||
+      (value.totalHomeScore !== undefined &&
+        value.totalAwayScore !== undefined),
+    {
+      message: "Preencha os dois lados do placar total.",
+      path: ["totalAwayScore"],
+    },
+  );
 
 export const placementResultSchema = z
   .object({

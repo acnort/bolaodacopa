@@ -76,6 +76,34 @@ describe("scoring", () => {
     expect(result.outcomeHit).toBe(true);
   });
 
+  it("scores against the 90-minute result when total result differs", () => {
+    const prediction: MatchPrediction = {
+      id: "p-extra-time",
+      userId: "user-1",
+      matchId: "match-extra-time",
+      homeScore: 1,
+      awayScore: 1,
+      createdAt: "",
+      updatedAt: "",
+    };
+
+    const result = scoreMatchPrediction(
+      prediction,
+      {
+        matchId: "match-extra-time",
+        homeScore: 1,
+        awayScore: 1,
+        totalHomeScore: 2,
+        totalAwayScore: 1,
+        publishedAt: "",
+      },
+      rule,
+    );
+
+    expect(result.points).toBe(5);
+    expect(result.exactHit).toBe(true);
+  });
+
   it("scores podium picks independently", () => {
     const prediction: PlacementPrediction = {
       id: "placement-1",

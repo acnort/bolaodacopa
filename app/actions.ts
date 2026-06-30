@@ -427,6 +427,8 @@ export async function saveOfficialResult(
       matchId: formData.get("matchId"),
       homeScore: formData.get("homeScore"),
       awayScore: formData.get("awayScore"),
+      totalHomeScore: formData.get("totalHomeScore"),
+      totalAwayScore: formData.get("totalAwayScore"),
       status: formData.get("status"),
     });
 

@@ -54,7 +54,12 @@ import type {
   PredictionRule,
   Profile,
 } from "@/lib/domain/types";
-import { APP_TIME_ZONE, getDateKeyInAppTimeZone } from "@/lib/formatters";
+import {
+  APP_TIME_ZONE,
+  formatScore,
+  getDateKeyInAppTimeZone,
+  getTotalScoreLabel,
+} from "@/lib/formatters";
 import { useSandboxSnapshot } from "@/lib/sandbox-storage";
 
 const LIVE_MATCH_STALE_WINDOW_MS = 3 * 60 * 60 * 1000;
@@ -258,6 +263,7 @@ interface ScoredMatchRow {
   awayTeam: string;
   awayTeamCode?: string;
   officialScore: string;
+  officialTotalScore?: string;
   predictedScore: string;
   points: number;
   description: string;
@@ -383,7 +389,7 @@ function ScoredMatchPointsDialog({
                   <TableRow>
                     <TableHead>Partida</TableHead>
                     <TableHead className="w-[110px] text-center">
-                      Oficial
+                      Oficial 90 min
                     </TableHead>
                     <TableHead className="w-[110px] text-center">
                       Palpite
@@ -425,9 +431,16 @@ function ScoredMatchPointsDialog({
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="neutral" size="small">
-                          {row.officialScore}
-                        </Badge>
+                        <div className="space-y-1">
+                          <Badge variant="neutral" size="small">
+                            {row.officialScore}
+                          </Badge>
+                          {row.officialTotalScore ? (
+                            <div className="text-[11px] font-medium text-[color:var(--text-muted)]">
+                              Total {row.officialTotalScore}
+                            </div>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center font-semibold">
                         {row.predictedScore}
@@ -484,7 +497,7 @@ function MatchPredictionsDialog({
             {homeTeamName} x {awayTeamName}
           </DialogTitle>
           <DialogDescription>
-            Placar atual:{" "}
+            Placar 90 min:{" "}
             <span className="font-semibold text-[color:var(--text-strong)]">
               {resultScore}
             </span>
@@ -753,8 +766,9 @@ export function RankingView({
           awayTeamCode: awayTeam?.code,
           predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
           officialScore: result
-            ? `${result.homeScore} x ${result.awayScore}`
+            ? formatScore(result.homeScore, result.awayScore)
             : "-",
+          officialTotalScore: result ? getTotalScoreLabel(result) : undefined,
         };
       });
     const placementPrediction = activeSnapshot.placementPredictions.find(
@@ -831,7 +845,8 @@ export function RankingView({
               match.awayPlaceholder,
             ),
             awayTeamCode: awayTeam?.code,
-            officialScore: `${result.homeScore} x ${result.awayScore}`,
+            officialScore: formatScore(result.homeScore, result.awayScore),
+            officialTotalScore: getTotalScoreLabel(result),
             predictedScore: `${prediction.homeScore} x ${prediction.awayScore}`,
             points: score.points,
             description: score.description,
@@ -1309,8 +1324,9 @@ export function RankingView({
                       })
                     : [];
                   const resultScore = result
-                    ? `${result.homeScore} x ${result.awayScore}`
+                    ? formatScore(result.homeScore, result.awayScore)
                     : "Sem placar";
+                  const totalScoreLabel = getTotalScoreLabel(result);
 
                   return (
                     <div
@@ -1344,9 +1360,14 @@ export function RankingView({
                           </span>
                           <div className="rounded-md bg-[color:var(--surface-base)] px-2.5 py-1 text-sm font-black text-[color:var(--text-strong)]">
                             {result
-                              ? `${result.homeScore} x ${result.awayScore}`
+                              ? formatScore(result.homeScore, result.awayScore)
                               : "x"}
                           </div>
+                          {totalScoreLabel ? (
+                            <span className="max-w-24 text-center text-[10px] leading-tight font-semibold text-[color:var(--text-muted)]">
+                              Total {totalScoreLabel}
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className="flex min-w-0 flex-col items-center gap-2 text-center">

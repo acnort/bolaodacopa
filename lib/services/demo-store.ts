@@ -200,6 +200,8 @@ export function saveOfficialResultDemo(
   if (existing) {
     existing.homeScore = input.homeScore;
     existing.awayScore = input.awayScore;
+    existing.totalHomeScore = input.totalHomeScore;
+    existing.totalAwayScore = input.totalAwayScore;
     existing.publishedAt = nowIso();
     existing.isManual = true;
     return {
@@ -213,6 +215,8 @@ export function saveOfficialResultDemo(
     matchId: input.matchId,
     homeScore: input.homeScore,
     awayScore: input.awayScore,
+    totalHomeScore: input.totalHomeScore,
+    totalAwayScore: input.totalAwayScore,
     publishedAt: nowIso(),
     isManual: true,
   });
@@ -298,6 +302,9 @@ export function syncMatchesDemo(
         const homeScore = existingResult.homeScore;
         existingResult.homeScore = existingResult.awayScore;
         existingResult.awayScore = homeScore;
+        const totalHomeScore = existingResult.totalHomeScore;
+        existingResult.totalHomeScore = existingResult.totalAwayScore;
+        existingResult.totalAwayScore = totalHomeScore;
         existingResult.publishedAt = nowIso();
       }
     }
@@ -317,12 +324,16 @@ export function syncMatchesDemo(
 
       existing.homeScore = input.homeScore;
       existing.awayScore = input.awayScore;
+      existing.totalHomeScore = input.totalHomeScore;
+      existing.totalAwayScore = input.totalAwayScore;
       existing.publishedAt = nowIso();
     } else {
       state.snapshot.results.push({
         matchId: input.matchId,
         homeScore: input.homeScore,
         awayScore: input.awayScore,
+        totalHomeScore: input.totalHomeScore,
+        totalAwayScore: input.totalAwayScore,
         publishedAt: nowIso(),
         isManual: false,
       });
