@@ -34,7 +34,20 @@ interface FootballDataMatchesResponse {
       tla?: string | null;
     };
     score: {
+      duration?: string;
       fullTime: {
+        home: number | null;
+        away: number | null;
+      };
+      regularTime?: {
+        home: number | null;
+        away: number | null;
+      };
+      extraTime?: {
+        home: number | null;
+        away: number | null;
+      };
+      penalties?: {
         home: number | null;
         away: number | null;
       };
@@ -210,17 +223,42 @@ function mapMatch(match: FootballDataMatchesResponse["matches"][number]): Match 
 function mapResult(
   match: FootballDataMatchesResponse["matches"][number],
 ): OfficialResult | null {
-  const homeScore = match.score.fullTime.home;
-  const awayScore = match.score.fullTime.away;
+  const regularTime = match.score.regularTime;
+  const hasRegularTime =
+    regularTime?.home !== null &&
+    regularTime?.home !== undefined &&
+    regularTime.away !== null &&
+    regularTime.away !== undefined;
+  const isCompleted = toMatchStatus(match.status) === "completed";
+  const isNonRegularCompleted =
+    isCompleted &&
+    match.score.duration !== undefined &&
+    match.score.duration !== "REGULAR";
+
+  if (isNonRegularCompleted && !hasRegularTime) {
+    return null;
+  }
+
+  const homeScore = hasRegularTime
+    ? regularTime.home
+    : match.score.fullTime.home;
+  const awayScore = hasRegularTime
+    ? regularTime.away
+    : match.score.fullTime.away;
 
   if (homeScore === null || awayScore === null) {
     return null;
   }
 
+  const totalHomeScore = match.score.fullTime.home;
+  const totalAwayScore = match.score.fullTime.away;
+
   return {
     matchId: String(match.id),
     homeScore,
     awayScore,
+    totalHomeScore: totalHomeScore ?? undefined,
+    totalAwayScore: totalAwayScore ?? undefined,
     publishedAt: new Date().toISOString(),
   };
 }
