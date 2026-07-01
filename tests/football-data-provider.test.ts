@@ -91,4 +91,48 @@ describe("football-data provider", () => {
 
     await expect(footballDataProvider.getResults()).resolves.toEqual([]);
   });
+
+  it("derives regular time when football-data marks extra time as regular duration", async () => {
+    configureFootballData();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            matches: [
+              {
+                id: 537422,
+                utcDate: "2026-07-01T20:00:00Z",
+                status: "FINISHED",
+                stage: "LAST_32",
+                homeTeam: { id: 805, name: "Belgium", tla: "BEL" },
+                awayTeam: { id: 804, name: "Senegal", tla: "SEN" },
+                score: {
+                  winner: "HOME_TEAM",
+                  duration: "REGULAR",
+                  fullTime: { home: 3, away: 2 },
+                  halfTime: { home: 0, away: 1 },
+                  regularTime: { home: null, away: null },
+                  extraTime: { home: 1, away: 0 },
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const results = await footballDataProvider.getResults();
+
+    expect(results[0]).toMatchObject({
+      matchId: "537422",
+      homeScore: 2,
+      awayScore: 2,
+      totalHomeScore: 3,
+      totalAwayScore: 2,
+      extraTimeHomeScore: 3,
+      extraTimeAwayScore: 2,
+    });
+  });
 });

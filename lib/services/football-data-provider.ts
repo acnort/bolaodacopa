@@ -241,45 +241,73 @@ function addScorePairs(
   };
 }
 
+function subtractScorePairs(
+  base: { home: number; away: number },
+  ...subtractions: Array<{ home: number; away: number } | undefined>
+) {
+  let score = { ...base };
+
+  for (const subtraction of subtractions) {
+    score = {
+      home: score.home - (subtraction?.home ?? 0),
+      away: score.away - (subtraction?.away ?? 0),
+    };
+  }
+
+  if (score.home < 0 || score.away < 0) return undefined;
+  return score;
+}
+
 function mapResult(
   match: FootballDataMatchesResponse["matches"][number],
 ): OfficialResult | null {
-  const regularTime = match.score.regularTime;
-  const hasRegularTime = hasCompleteScorePair(regularTime);
+  const regularTimeScore = hasCompleteScorePair(match.score.regularTime)
+    ? match.score.regularTime
+    : undefined;
+  const fullTimeScore = hasCompleteScorePair(match.score.fullTime)
+    ? match.score.fullTime
+    : undefined;
+  const extraTime = hasCompleteScorePair(match.score.extraTime)
+    ? match.score.extraTime
+    : undefined;
+  const penalties = hasCompleteScorePair(match.score.penalties)
+    ? match.score.penalties
+    : undefined;
+  const derivedRegularTime =
+    !regularTimeScore && fullTimeScore && (extraTime || penalties)
+      ? subtractScorePairs(fullTimeScore, extraTime, penalties)
+      : undefined;
   const isCompleted = toMatchStatus(match.status) === "completed";
   const isNonRegularCompleted =
     isCompleted &&
-    match.score.duration !== undefined &&
-    match.score.duration !== "REGULAR";
+    ((match.score.duration !== undefined && match.score.duration !== "REGULAR") ||
+      Boolean(extraTime) ||
+      Boolean(penalties));
 
-  if (isNonRegularCompleted && !hasRegularTime) {
+  if (isNonRegularCompleted && !regularTimeScore && !derivedRegularTime) {
     return null;
   }
 
-  const homeScore = hasRegularTime
-    ? regularTime.home
-    : match.score.fullTime.home;
-  const awayScore = hasRegularTime
-    ? regularTime.away
-    : match.score.fullTime.away;
-
-  if (homeScore === null || awayScore === null) {
+  const regulationScore =
+    regularTimeScore ?? derivedRegularTime ?? fullTimeScore;
+  if (!regulationScore) {
     return null;
   }
+
+  const homeScore = regulationScore.home;
+  const awayScore = regulationScore.away;
 
   const totalHomeScore = match.score.fullTime.home;
   const totalAwayScore = match.score.fullTime.away;
   const extraTimeScore =
-    hasRegularTime && hasCompleteScorePair(match.score.extraTime)
-      ? addScorePairs(regularTime, match.score.extraTime)
-      : match.score.duration === "EXTRA_TIME" &&
-          hasCompleteScorePair(match.score.fullTime)
-        ? match.score.fullTime
+    extraTime
+      ? addScorePairs(regulationScore, extraTime)
+      : match.score.duration === "EXTRA_TIME" && fullTimeScore
+        ? fullTimeScore
         : undefined;
   const penaltyScore =
-    match.score.duration === "PENALTY_SHOOTOUT" &&
-    hasCompleteScorePair(match.score.fullTime)
-      ? match.score.fullTime
+    match.score.duration === "PENALTY_SHOOTOUT" && fullTimeScore
+      ? fullTimeScore
       : undefined;
 
   return {
